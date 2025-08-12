@@ -1,0 +1,36 @@
+from pydantic import BaseModel, EmailStr
+from typing import Optional
+import uuid
+
+### Esquema de dados 'Aluno' ###
+
+# Base com os campos comuns
+class AlunoBase(BaseModel):
+    matricula_ra: str
+    nome_aluno: str
+    sobrenome_aluno: str
+    email_institucional: EmailStr
+    curso: str
+    semestre: int
+    turma: str
+
+# Class para receber dados na criação de um aluno
+class AlunoCreate(AlunoBase):
+    password: str
+
+# Class para retornar os daos de um aluno (sem senha)
+class Aluno(AlunoBase):
+    id: uuid.UUID
+
+    class Config:
+        from_attributes = True # Permite que o Pydantic leia dados de objetos
+
+# Class para atualizar parametros nao tabela aluno
+class AlunoUpdate(BaseModel):
+    nome_aluno: Optional[str] = None
+    sobrenome_aluno: Optional[str] = None
+    email_institucional: Optional[EmailStr] = None
+    curso: Optional[str] = None
+    semestre: Optional[int] = None
+    turma: Optional[str] = None
+

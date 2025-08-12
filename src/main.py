@@ -1,0 +1,22 @@
+from fastapi import FastAPI
+from .routers import auth, alunos, professores, coordenador
+
+
+# Descrição: Este é o ponto de entrada da API do Chatbot Acadêmico, que gerencia as interações e dados do chatbot integrado ao Teams.
+app = FastAPI(
+    title="API do Chatbot Acadêmico",
+    description="API para gerenciar as interações e dados do chatbot acadêmico integrado ao Teams.",
+    version="1.0.0"
+)
+
+# Inclui os roteadores no aplicativo principal
+app.include_router(auth.router)
+app.include_router(alunos.router)
+app.include_router(professores.router)
+app.include_router(coordenador.router)
+
+
+# **** ENDPOINT RAIZ PARA VERIFICAR SE A API ESTA ONLINE ****
+@app.get("/", tags=["Root"])
+def read_root():
+    return  {"message": "Bem-vindo á API do Chatbot Academico!"}

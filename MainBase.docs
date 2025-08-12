@@ -1,0 +1,122 @@
+from fastapi import FastAPI, HTTPException, status
+from src.supabase_client import supabase  # Importa nosso cliente
+from src.schemas import UserLoginSchema, AlunoCreate, Aluno, AlunoUpdate
+
+# Descrição: Este é o ponto de entrada da API do Chatbot Acadêmico, que gerencia as interações e dados do chatbot integrado ao Teams.
+app = FastAPI(
+    title="API do Chatbot Acadêmico",
+    description="API para gerenciar as interações e dados do chatbot acadêmico integrado ao Teams.",
+    version="1.0.0"
+)
+
+
+@app.get("/")
+def read_root():
+    return {"message": "Bem-vindo à API do Chatbot Acadêmico!"}
+
+# **** ENDPOINT DE LOGIN ****
+# @app.post("/login", status_code=status.HTTP_200_OK)
+# def user_login(credentials: UserLoginSchema):
+#     """
+#     Autentica um usuário usando o serviço de autenticação do Supabase.
+#     """
+#     try:
+#         # Chama a função de login nativa do Supabase
+#         response = supabase.auth.sign_in_with_password({
+#             "email": credentials.email,
+#             "password": credentials.password
+#         })
+#
+#         # Se o login for bem-sucedido, o Supabase retorna os dados da sessão
+#         return {
+#             "message": "Login realizado com sucesso!",
+#             "access_token": response.session.access_token,
+#             "user_id": response.user.id,
+#             "user_email": response.user.email
+#         }
+#
+#     except Exception as e:
+#         # Captura erros de login (e-mail não existe, senha incorreta, etc.)
+#         # O Supabase geralmente retorna um erro específico que podemos tratar
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail=f"Erro de autenticação: As credenciais são inválidas."
+#         )
+
+
+@app.post("/alunos", status_code=status.HTTP_201_CREATED, response_model=Aluno, tags=["Alunos"])
+def create_aluno(aluno_data: AlunoCreate):
+    """
+    Cadastra um novo aluno no sistema de autenticação e na tabela Aluno.
+    """
+    try:
+        # Cria o usuário no Supabase Auth
+        auth_response = supabase.auth.sign_up({
+            "email": aluno_data.email_institucional,
+            "password": aluno_data.password
+        })
+
+        user_id = auth_response.user.id
+
+        # Prepara os dados do aluno para inserção na tabela "Aluno"
+        aluno_profile_data = aluno_data.model_dump(exclude={"password"})
+        aluno_profile_data["id"] = user_id
+
+        # Inserir o perfil do aluno na tabela Aluno
+        db_response = supabase.table("aluno").insert(aluno_profile_data).execute()
+
+        #Verifica se a inserção foi bem-sucedida
+        if not db_response.data:
+            # ***** Aqui depois seria bom criar uma função para escluir o user no Auth do supabase
+            raise HTTPException(status_code=500, detail="Erro ao salva o perfil do aluno.")
+
+        return db_response.data[0]
+
+    except Exception as e:
+        #Captura erros (ex: e-mail ja existe) e retorna um erro claro
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.put("/alunos/{ra}", response_model=Aluno, tags=["Alunos"])
+def update_aluno(ra: str, aluno_update_data: AlunoUpdate):
+    """
+    Atualiza as informaões de um aluno existente.
+    """
+    try:
+        # Cria um dicionario apensa com os dados que foram enviados (nâo none)
+        update_data = aluno_update_data.model_dump(exclude_unset=True)
+
+        # Se não houver dados para atualizar, retorne um erro ou a entidade original
+        if not update_data:
+            raise HTTPException(status_code=400, detail="Nenhum dado fornecido para atualização.")
+
+        # Executa o update no supabase
+        response = supabase.table('aluno').update(update_data).eq('matricula_ra', ra).execute()
+
+        #Se não encontrar o aluno
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Aluno não encontrado para atualização")
+
+        return response.data[0]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/alunos/{ra}", status_code=status.HTTP_204_NO_CONTENT, tags=["Alunos"])
+def delete_aluno(ra: str):
+    """
+    Deleta um aluno do banco de dados.
+    """
+
+    # Atenção: Isso não remove o usuário do sistema de autenticação do Supabase.
+    try:
+        # Executa o delete no Supabase | tabela = aluno | indentificado do aluno = matricula_ra
+        response = supabase.table('aluno').delete().eq('matricula_ra', ra).execute()
+
+        # Verifica se algum dado foi retornado (o que segnifica que algo foi deletado)
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Aluno nao encontrado para deletar.")
+
+        # HTTP 204 nao deve retornar nenhum corpo de resposta
+        return
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

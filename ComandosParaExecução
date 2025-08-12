@@ -1,0 +1,11 @@
+Executar a API
+python -m uvicorn src.main:app --reload
+
+Achar o processo
+netstat -ano | findstr ":8000"
+
+kill no processo
+taskkill /PID 15872 /F
+(Tente fechar o terminal onde incio a execução.
+ Por fim, se nao fechar pelas linha de comado nera necessario ir ate o gerenciador de tarefas
+  e finalizar a tarefa python.exe manualmente )
