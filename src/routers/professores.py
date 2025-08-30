@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 from src.supabase_client import supabase
-from src.schemas.sch_professor import ProfessorCreate, Professor, ProfessorUpdate
+from ..schemas.sch_professor import ProfessorCreate, Professor, ProfessorUpdate
 
 # --- ROUTER PROFESSORES ---
 

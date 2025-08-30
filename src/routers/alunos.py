@@ -35,7 +35,7 @@ def create_aluno(aluno_data: AlunoCreate):
         raise HTTPException(status_code=400, detail=str(e))
 
 # **** ENDPOINT PARA ATUALIZAR UM ALUNO ****
-# tendo como referencia o RA do aluno
+# Utilizando o RA do aluno como referencia o RA do aluno
 @router.put("/{ra}", response_model=Aluno)
 def update_aluno(ra: str, aluno_update_data: AlunoUpdate):
     try:

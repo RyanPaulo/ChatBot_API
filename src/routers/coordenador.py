@@ -9,6 +9,7 @@ router = APIRouter(
     tags=["Coordenador"]
 )
 
+### ENDPOINT PARA CADASTRAR COORDENADOR ###
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=Coordenador)
 def create_coordenador(coordenador_data: CoordenadorCreate):
     try:
@@ -37,6 +38,8 @@ def create_coordenador(coordenador_data: CoordenadorCreate):
 
 
     # **** ENDPOINT PARA ATUALIZAR CADASTRO DO COORDENADOR ****
+
+### ENDPOINT PARA ATUALIZAR COORDENADOR ###
 @router.put("/{id}", response_model=Coordenador)
 def update_coordenador(id: str, coordenador_update_data: CoordenadorUpdate):
     try:
@@ -57,7 +60,7 @@ def update_coordenador(id: str, coordenador_update_data: CoordenadorUpdate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# **** ENDPOINR PARA DELETAR COORDENADOR ****
+### ENDPOINR PARA DELETAR COORDENADOR ###
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_coordenador(id: str):
     try:
