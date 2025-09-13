@@ -10,9 +10,9 @@ class AlunoBase(BaseModel):
     nome_aluno: str
     sobrenome_aluno: str
     email_institucional: EmailStr
-    curso: str
     semestre: int
     turma: str
+    id_curso: uuid.UUID
 
 # Class para receber dados na criação de um aluno
 class AlunoCreate(AlunoBase):
@@ -30,7 +30,7 @@ class AlunoUpdate(BaseModel):
     nome_aluno: Optional[str] = None
     sobrenome_aluno: Optional[str] = None
     email_institucional: Optional[EmailStr] = None
-    curso: Optional[str] = None
     semestre: Optional[int] = None
     turma: Optional[str] = None
+    id_curso: Optional[uuid.UUID] = None
 

@@ -3,8 +3,6 @@ from pydantic import BaseModel, Field, root_validator
 from typing import Optional
 import uuid
 
-
-
 ### Esquema de dados 'Aviso' ###
 
 class AvisoBase(BaseModel):
@@ -29,7 +27,6 @@ class AvisoBase(BaseModel):
 
 class AvisoCreate(AvisoBase):
     pass
-
 
 class Aviso(AvisoBase):
     id_aviso: uuid.UUID

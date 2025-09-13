@@ -3,6 +3,8 @@ from ..supabase_client import supabase
 from ..schemas.sch_cronograma import CronogramaCreate, Cronograma, CronogramaUpdate
 import uuid
 
+# --- ROUTER CRONOGRAMA ---
+
 router = APIRouter(
     prefix="/cronograma",
     tags=["cronograma"]
@@ -27,28 +29,28 @@ def create_cronograma(cronograma_data: CronogramaCreate):
         cronograma_payload['id_disciplina'] = str(cronograma_payload['id_disciplina'])
 
 
-        response = supabase.table("cronograma").insert(cronograma_payload).execute()
+        db_response = supabase.table("cronograma").insert(cronograma_payload).execute()
 
-        if not response.data:
+        if not db_response.data:
             raise HTTPException(status_code=500, detail="Erro ao cadatrar a cronograma")
 
-        return response.data[0]
+        return db_response.data[0]
     except Exception as e:
         if "violates foreign key constraint" in str(e).lower():
             detail = "A disciplina associado não foi encontrado."
             raise HTTPException(status_code=404, detail=detail)
         raise HTTPException(status_code=400, detail=str(e))
 
-##### ENDPOINT PARA CONSULTAR OS CRONOGRAMA USANDO O ID ####
+#### ENDPOINT PARA CONSULTAR OS CRONOGRAMA USANDO O ID ####
 @router.get("/{cronograma_id}", response_model=Cronograma)
 def get_cronograma(cronograma_id: uuid.UUID):
     try:
-        response = supabase.table("cronograma").select("*").eq('id_cronograma', str(cronograma_id)).single().execute()
+        db_response = supabase.table("cronograma").select("*").eq('id_cronograma', str(cronograma_id)).single().execute()
 
-        if not response.data:
+        if not db_response.data:
             raise HTTPException(status_code=404, detail="Cronograma não encotrada.")
 
-        return response.data
+        return db_response.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -78,12 +80,12 @@ def update_cronograma(cronograma_id: uuid.UUID, cronograma_data: CronogramaUpdat
         if not update_payload:
             raise HTTPException(status_code=400, detail="Nenhum dado fornecido para atualização.")
 
-        response = supabase.table('cronograma').update(update_payload).eq('id_cronograma', str(cronograma_id)).execute()
+        db_response = supabase.table('cronograma').update(update_payload).eq('id_cronograma', str(cronograma_id)).execute()
 
-        if not response.data:
+        if not db_response.data:
             raise HTTPException(status_code=404, detail="Cronograma não encontrada para atualização.")
 
-        return response.data[0]
+        return db_response.data[0]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -92,9 +94,9 @@ def update_cronograma(cronograma_id: uuid.UUID, cronograma_data: CronogramaUpdat
 def delete_cronograma(cronograma_id: uuid.UUID):
     try:
 
-        response = supabase.table('cronograma').delete().eq('id_cronograma', str(cronograma_id)).execute()
+        db_response = supabase.table('cronograma').delete().eq('id_cronograma', str(cronograma_id)).execute()
 
-        if not response.data:
+        if not db_response.data:
             raise HTTPException(status_code=404, detail="Cronograma não encontrado para deletar")
 
         return

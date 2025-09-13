@@ -4,7 +4,6 @@ from typing import Optional
 import uuid
 
 
-
 ### Esquema de dados 'Avaliacao' ###
 
 class AvaliacaoBase(BaseModel):

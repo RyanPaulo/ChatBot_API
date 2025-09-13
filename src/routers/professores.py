@@ -9,7 +9,7 @@ router = APIRouter(
     tags=["Professores"]
 )
 
-# **** ENDPOINT PARA CADASTRAR PROFESSORES ****
+### ENDPOINT PARA CADASTRAR PROFESSORES ###
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=Professor)
 def create_professor(professor_data: ProfessorCreate):
     try:
@@ -36,7 +36,7 @@ def create_professor(professor_data: ProfessorCreate):
     except Exception as e:
         raise  HTTPException(status_code=400, detail=str(e))
 
-# **** ENDPOINT PARA ATUALIZAR CADASTRO DO PROFESSORES ****
+### ENDPOINT PARA ATUALIZAR CADASTRO DO PROFESSORES ###
 @router.put("/{id}", response_model=Professor)
 def update_professor(id: str, professor_update_data: ProfessorUpdate):
     try:
@@ -55,7 +55,7 @@ def update_professor(id: str, professor_update_data: ProfessorUpdate):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# **** ENDPOINR PARA DELETAR PROFESSORES ****
+### ENDPOINR PARA DELETAR PROFESSORES ###
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_professor(id: str):
     try:

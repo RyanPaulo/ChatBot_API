@@ -3,6 +3,7 @@ from ..supabase_client import supabase
 from ..schemas.sch_avaliacao import AvaliacaoCreate, Avaliacao, AvaliacaoUpdate
 import uuid
 
+# --- ROUTER AVALIACAO ---
 
 router = APIRouter(
     prefix="/avaliacao",
@@ -39,7 +40,6 @@ def crete_avaliacao(avaliacao_data: AvaliacaoCreate):
 
         raise HTTPException(status_code=400, detail=str(e))
 
-
 ### ENDPOINT PARA CONSULTAR AS AVALIAÇÃO USANDO O ID ###
 @router.get("/{avalicao_id}", response_model=Avaliacao)
 def get_avaliacao(avaliacao_id: uuid.UUID):
@@ -52,7 +52,6 @@ def get_avaliacao(avaliacao_id: uuid.UUID):
         return response.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 ### ENDPOIN PARA ATUALIZAR UMA AVALIAÇÃO ###
 @router.put("/{avaliacao_id}", response_model=Avaliacao)
@@ -81,7 +80,6 @@ def update_avaliacao(avaliacao_id: uuid.UUID, avaliacao_data: AvaliacaoUpdate):
             raise HTTPException(status_code=404, detail=f"O novo coordenador com id '{avaliacao_data.id_coordenador}' não foi encontrado.")
 
         raise HTTPException(status_code=500, detail=str(e))
-
 
 ### ENDPOIN PARA DELETAR UMA AVALIACAO ###
 @router.delete("/{avaliacao_id}", status_code=status.HTTP_204_NO_CONTENT)

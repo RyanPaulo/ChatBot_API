@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 from src.supabase_client import supabase
 from src.schemas.sch_aluno import AlunoCreate, Aluno, AlunoUpdate
+import uuid
 
 # --- ROUTER ALUNOS ---
 
@@ -9,7 +10,7 @@ router = APIRouter(
     tags=["Alunos"]
 )
 
-# **** ENDPOINT PARA CASDATRAR ALUNO ****
+### ENDPOINT PARA CASDATRAR ALUNO ###
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=Aluno)
 def create_aluno(aluno_data: AlunoCreate):
     try:
@@ -23,6 +24,7 @@ def create_aluno(aluno_data: AlunoCreate):
         # Prepara os dados do aluno para inserção na tabela "Aluno"
         aluno_profile_data = aluno_data.model_dump(exclude={"password"})
         aluno_profile_data["id"] = user_id
+        aluno_profile_data['id_curso'] = str(aluno_profile_data['id_curso'])
 
         # Inserir o perfil do aluno na tabela Aluno
         db_response = supabase.table("aluno").insert(aluno_profile_data).execute()
@@ -30,11 +32,31 @@ def create_aluno(aluno_data: AlunoCreate):
         # Verifica se a inserção foi bem-sucedida
         if not db_response.data:
             raise HTTPException(status_code=500, detail="Erro ao salvar o perfil do aluno.")
-        return db_response.data[0]
+
+        new_aluno = db_response.data[0]
+        id_new_aluno = new_aluno['id']
+        id_curso_aluno = new_aluno['id_curso']
+
+        # Buscar os IDs das disciplinas do curso na tabela associativa "CursoDisciplina"
+        disciplinas_response = supabase.table("cursodisciplina").select("id_disciplina").eq("id_curso", id_curso_aluno).execute()
+
+        if disciplinas_response.data:
+            # Preparar os registros para a tabela AlunoDisciplina
+            create_registration = [
+                {"id_aluno": id_new_aluno,  "id_disciplina": item['id_disciplina']}
+                for item in disciplinas_response.data
+            ]
+
+            # Inserir todas as matrículas de uma vez
+            if create_registration:
+                supabase.table("alunodisciplina").insert(create_registration).execute()
+
+        return new_aluno
+
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-# **** ENDPOINT PARA ATUALIZAR UM ALUNO ****
+### ENDPOINT PARA ATUALIZAR UM ALUNO ###
 # Utilizando o RA do aluno como referencia o RA do aluno
 @router.put("/{ra}", response_model=Aluno)
 def update_aluno(ra: str, aluno_update_data: AlunoUpdate):
@@ -42,22 +64,48 @@ def update_aluno(ra: str, aluno_update_data: AlunoUpdate):
         # Cria um dicionario apensa com os dados que foram enviados (nâo none)
         update_payload = aluno_update_data.model_dump(exclude_unset=True)
 
-        # Se não houver dados para atualizar, retorne um erro ou a entidade original
-        if not update_payload:
-            raise HTTPException(status_code=400, detail="Nenhum dado fornecido para atualização.")
+        #  Buscamos o aluno ANTES de atualizar para saber o curso antigo
+        aluno_response = supabase.table("aluno").select("id, id_curso").eq("matricula_ra", ra).single().execute()
+        if not aluno_response.data:
+            raise HTTPException(status_code=404, detail="Aluno nao encontrado.")
 
-        # Executa o update no supabase
-        response = supabase.table('aluno').update(update_payload).eq('matricula_ra', ra).execute()
+        id_aluno = aluno_response.data['id']
+        id_curso_previous = aluno_response.data['id_curso']
 
-        # Se não encontrar o aluno
-        if not response.data:
-            raise HTTPException(status_code=404, detail="Aluno não encontrado para atualização.")
+        # Verificamos se o curso do aluno está sendo alterado
+        new_id_curso = update_payload.get('id_curso', id_curso_previous)
+        if isinstance(new_id_curso, uuid.UUID):
+            new_id_curso = str(new_id_curso)
 
-        return response.data[0]
+        # Atualiza os dados principais do aluno
+        if 'id_curso' in update_payload:
+            update_payload['id_curso'] = new_id_curso
+
+        db_response = supabase.table('aluno').update(update_payload).eq('id', id_aluno).execute()
+        if not db_response.data:
+            raise HTTPException(status_code=500, detail="Falha ao atualizar os dados do aluno.")
+        aluno_updated = db_response.data[0]
+
+        #Se o curso mudou, sincronizamos as matrículas
+        if new_id_curso != id_curso_previous:
+            # DELETE: Remove todas as matrículas antigas do aluno
+            supabase.table("alunodisciplina").delete().eq("id_aluno", id_aluno).execute()
+
+            # SELECT & INSERT: Busca as disciplinas do novo curso e cria as novas matrículas
+            disciplinas_response = supabase.table("disciplina").select("id_disciplina").eq("id_curso", new_id_curso).execute()
+            if disciplinas_response.data:
+                ra_to_create = [
+                    {"id_aluno": id_aluno, "id_disciplina": disciplina['id_disciplina']}
+                    for disciplina in disciplinas_response.data
+                ]
+                if ra_to_create:
+                    supabase.table("alunodisciplina").insert(ra_to_create).execute()
+
+        return aluno_updated
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# **** ENDPOINT PARA DELETAR UM ALUNO ****
+### ENDPOINT PARA DELETAR UM ALUNO ###
 @router.delete("/{ra}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_aluno(ra: str):
     # ** Lembrar que essa função não remove o usuário do sistema de autenticação do Supabase.

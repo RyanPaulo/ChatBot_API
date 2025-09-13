@@ -59,7 +59,6 @@ def update_coordenador(id: str, coordenador_update_data: CoordenadorUpdate):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 ### ENDPOINR PARA DELETAR COORDENADOR ###
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_coordenador(id: str):

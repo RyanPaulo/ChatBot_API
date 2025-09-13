@@ -1,13 +1,16 @@
+from typing import List
+
 from fastapi import APIRouter, HTTPException, status
 from ..supabase_client import supabase
 from ..schemas.sch_aviso import Aviso, AvisoCreate, AvisoUpdate
 import uuid
 
+# --- ROUTER AVISO ---
+
 router = APIRouter(
     prefix="/aviso",
     tags=["Aviso"]
 )
-
 
 ### ENDPOINT PARA REGISTRAR AVISO ###
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=Aviso)
@@ -51,6 +54,14 @@ def get_aviso(aviso_id: uuid.UUID):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+### ENDPOINT PARA LISTAR TODOS OS AVISOS ###
+@router.get("/", response_model=List[Aviso])
+def get_all_avisos():
+    try:
+        response = supabase.table("aviso").select("*").execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 ### ENDPOINT PARA ATUALIZAR UM AVISO ###
 @router.put("/{aviso_id}", response_model=Aviso)
@@ -78,7 +89,6 @@ def update_aviso(aviso_id: uuid.UUID, aviso_data: AvisoUpdate):
             raise  HTTPException(status_code=404, detail=f"O id do professor nao foi reconhecido {aviso_data.id_professor}")
 
         raise HTTPException(status_code=500, detail=str(e))
-
 
 ### ENDPOIND PARA DELETAR O AVISO ###
 @router.delete("/{aviso_id}", status_code=status.HTTP_204_NO_CONTENT)
