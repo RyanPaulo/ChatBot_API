@@ -8,7 +8,7 @@ import json
 # --- ROUTER BASE DE CONHECIMENTO PARA O RASA AI ---
 
 router = APIRouter(
-    prefix="/conhecimento",
+    prefix="/baseconhecimento",
     tags=["Base de Conhecimento"]
 )
 

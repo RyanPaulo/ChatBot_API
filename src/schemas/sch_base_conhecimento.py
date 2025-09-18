@@ -8,12 +8,10 @@ import uuid
 
 # Schema da base com os campos que podem ser criados ou atualizados
 class BaseConhecimentoBase(BaseModel):
-    pergunta_principal: str
-    resposta: str
+    nome_arquivo_origem: str
+    conteudo_processado: str
     palavra_chave: List[str] = Field(default_factory=list)
     categoria: Optional[str] = None
-    # visivel_para: List[str] = Field(default_factory=list, description="Ex: ['aluno', 'professor']")
-    visivel_para: List[str] = Field(default_factory=list)
     status: str = "rascunho"
     id_disciplina: Optional[uuid.UUID] = None
 
@@ -35,10 +33,9 @@ class BaseConhecimento(BaseConhecimentoBase):
 
 # Esquema para atualizar a base de conhecimento (Todos os campos sao opicional)
 class BaseConhecimentoUpdate(BaseModel):
-    pergunta_principal: Optional[str] = None
-    resposta: Optional[str] = None
+    nome_arquivo_origem: Optional[str] = None
+    conteudo_processado: Optional[str] = None
     palavra_chave: Optional[List[str]] = None
     categoria: Optional[str] = None
-    visivel_para: Optional[List[str]] = None
     status: Optional[str] = None
     id_disciplina: Optional[uuid.UUID] = None

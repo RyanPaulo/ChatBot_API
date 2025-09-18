@@ -3,6 +3,9 @@
 ** FINALIZAR O AMBIENTE VIRTUAL **
 --- deactivate ---
 
+** PARA BAIXAR AS BIBLIOTECAS AUTOMATICO **
+-- pip install -r requirements.txt --
+
 ### Bibliotecas e comando necessarios ###
 
 ## ChatBot_API - fastapi ##
