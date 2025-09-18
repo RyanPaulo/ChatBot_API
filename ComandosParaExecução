@@ -1,5 +1,84 @@
-Executar a API
-python -m uvicorn src.main:app --reload
+### COMANDOS PRINCIPAIS ###
+
+** FINALIZAR O AMBIENTE VIRTUAL **
+--- deactivate ---
+
+### Bibliotecas e comando necessarios ###
+
+## ChatBot_API - fastapi ##
+
+** PARA EXECUTAR O SERVIDOR DA API **
+--- python -m uvicorn src.main:app --reload    ----
+
+
+- python -m venv .venv # PARA CRIAR O AMBIENTE VIRTUAL
+
+- ./.venv/Scripts/Activate  # PARA ATIVAR O AMBIENTE VIRTUAL
+
+- pip install fastapi "uvicorn[standard]" supabase pydantic-settings
+     - pip install --upgrade --force-reinstall "uvicorn[standard]"   # caso seja necessario reinstalar o uvicorn
+
+- pip install supabase
+
+
+## ChatBot_rasa - RASA IA ##
+
+** PARA EXECUTAR O SERVIDOR RASA **
+-- rasa run actions ---
+
+** PARA ABRIR UM SHELL DE TESTE **
+-- rasa shell --
+
+** PARA EXECUTAR O TREINAMENTO DO RASA **
+-- rasa train --
+
+** PARA EXECUTAR A CONEXAO COM O TELEGRAM **
+-- rasa run -m models --enable-api --cors "*" --credentials credentials.yml --
+
+
+** COMANDO NECESSARIOS ANTES TE RODA OS SERVIDORES **
+- python -m venv .venv # PARA CRIAR O AMBIENTE VIRTUAL
+
+- ./.venv/Scripts/Activate  # PARA ATIVAR O AMBIENTE VIRTUAL
+
+- pip install rasa  # Biblioteca rasa ai "Se nao funcionar verifique o 'Build Visual Studio'"
+
+- pip show pyyaml   # nao lembro para que serve
+
+
+### API IA gemini ###
+" ATE ESSE MOMENTO O BACK DO ESSA INTELIGENCIA ESTA NO MESMO ARQUIVO DO ChatBot_rasa MAS EM UM AMBIENTE VITUAL SEPARADO"
+
+** ANTES DE EXECUTAR A API DO GEMINI **
+- python -m venv .venv_watcher   # PARA CRIAR OUTRO ARQUIVO PARA O AMBINTEDE VIRTUAL ISOLADO DO .VENV DO RASA
+
+- ./.venv_watcher/Scripts/Activate.ps1   # PARA ATIVAR ESSE AMBIENTE
+
+- pip install google-generativeai python-dotenv watchdog  # PARA INSTALAR A BIBLIOTECA DO GEMINI. OBS = TEM QUE ESTA COM O AMBIENTE .venv_watcher ATIVO
+
+-  pip install watchdog   # BIBLIOTECA NECESSARIA PARA A LOGICA DE ANALISAR O ARQUIVO
+
+
+** PARA EXECUTAR O GEMINI **
+
+- python connectors/local_file_watcher.py  # PARA EXECUTAR A ANALISE DO 'ARQUIVO' VIA GEMINI
+
+- - python connectors/metadata_enricher.py  # PARA EXECUTAR GRAVA AS PALAVRAS CHAVES NO BD
+
+
+## COMANDO PARA ABRIR O TUNEL NGROK ##
+
+# PARA EXECUTAR ESSE COMANDO O TERMINA TEM QUE ESTA NA PASTA DO 'ngrok'
+- .\ngrok http 5005  # COMANDO PARA ABRIR O TUNEL. ASSIM QUE EXECUTAR SO PEGAR A URL DO 'Forwarding'  | O MEU É : https://88e74a65fee0.ngrok-free.app
+
+
+
+## COMANDO DO TELEGRAM ##
+
+
+
+
+- rasa run -m models --enable-api --cors "*" --credentials credentials.yml # PARA INICIAR A CONEXAO ENTRE O RASA E O TELEGRAM
 
 Achar o processo
 netstat -ano | findstr ":8000"
@@ -9,3 +88,7 @@ taskkill /PID 15872 /F
 (Tente fechar o terminal onde incio a execução.
  Por fim, se nao fechar pelas linha de comado nera necessario ir ate o gerenciador de tarefas
   e finalizar a tarefa python.exe manualmente )
+
+
+
+
