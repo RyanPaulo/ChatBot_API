@@ -22,6 +22,7 @@ app.include_router(aviso.router)
 app.include_router(base_conhecimento.router)
 app.include_router(msg_aluno.router)
 
+
 # **** ENDPOINT RAIZ PARA VERIFICAR SE A API ESTA ONLINE ****
 @app.get("/", tags=["Root"])
 def read_root():
