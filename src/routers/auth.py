@@ -1,7 +1,7 @@
 
 from fastapi import APIRouter, HTTPException, status
 from src.supabase_client import supabase
-from src.schemas.auth import UserLoginSchema
+from src.schemas.sch_auth import UserLoginSchema
 
 
 router = APIRouter(
@@ -10,9 +10,7 @@ router = APIRouter(
 
 @router.post("/login", status_code=status.HTTP_200_OK)
 def user_login(credentials: UserLoginSchema):
-    """
-    Autentica um usuário usando o serviço de autenticação do Supabase.
-    """
+
     try:
         # Chama a função de login nativa do Supabase
         response = supabase.auth.sign_in_with_password({

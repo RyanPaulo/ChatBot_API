@@ -56,6 +56,33 @@ def create_aluno(aluno_data: AlunoCreate):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
+### ENDPOINT PARA BUSCAR UM ALUNO PELO EMAIL ###
+@router.get("/email/{email}", response_model=Aluno)
+def get_aluno_by_email(email: str):
+    try:
+        # Realiza a consulta na tabela "aluno" filtrando pelo email_institucional
+        response = supabase.table("aluno").select("*").eq("email_institucional", email).single().execute()
+
+        # Verifica se a busca retornou algum dado
+        if not response.data:
+            # Se não retornou, o aluno não foi encontrado. Lançamos um erro 404.
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Nenhum aluno encontrado com o email '{email}'."
+            )
+
+        # Se encontrou, retorna os dados do aluno.
+        return response.data
+
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Um erro inesperado ocorreu: {str(e)}"
+        )
+
 ### ENDPOINT PARA ATUALIZAR UM ALUNO ###
 # Utilizando o RA do aluno como referencia o RA do aluno
 @router.put("/{ra}", response_model=Aluno)

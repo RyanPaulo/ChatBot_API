@@ -6,12 +6,23 @@
 ** PARA BAIXAR AS BIBLIOTECAS AUTOMATICO **
 -- pip install -r requirements.txt --
 
+** PARA CRIAR E ATIVAR O AMBIENTE VIRTUAL **
+-- python -m venv .venv --
+
+## PARA ATUALIZAR A PASTA requirements ##
+-- pip freeze > requirements.txt --
+
+
+-- ./.venv_watcher/Scripts/Activate.ps1 --
+-- ./.venv/Scripts/Activate.ps1 --
+
 ### Bibliotecas e comando necessarios ###
 
 ## ChatBot_API - fastapi ##
 
 ** PARA EXECUTAR O SERVIDOR DA API **
 --- python -m uvicorn src.main:app --reload    ----
+--- python -m uvicorn src.main:app --reload --reload-dir src --host 0.0.0.0 --port 5000   ---- segunda opção
 
 
 - python -m venv .venv # PARA CRIAR O AMBIENTE VIRTUAL
@@ -50,7 +61,7 @@
 
 
 ### API IA gemini ###
-" ATE ESSE MOMENTO O BACK DO ESSA INTELIGENCIA ESTA NO MESMO ARQUIVO DO ChatBot_rasa MAS EM UM AMBIENTE VITUAL SEPARADO"
+" ATE ESSE MOMENTO O BACK D INTELIGENCIA ESTA NO MESMO ARQUIVO DO ChatBot_rasa MAS EM UM AMBIENTE VITUAL SEPARADO"
 
 ** ANTES DE EXECUTAR A API DO GEMINI **
 - python -m venv .venv_watcher   # PARA CRIAR OUTRO ARQUIVO PARA O AMBINTEDE VIRTUAL ISOLADO DO .VENV DO RASA
@@ -93,5 +104,21 @@ taskkill /PID 15872 /F
   e finalizar a tarefa python.exe manualmente )
 
 
+### COMANDOS EXCLUSIVO DO RYAN ###
 
+- cd D:/APS/chatbot_rasa/ngrok
+
+
+
+
+
+
+####################################################################################################################################
+
+##### COMANDOS PROJETO APS ######
+
+### COMANDO API ###
+
+# Para executar o Scripts ETL | dentro do .venv da api
+- python ..\scripts_etl\carregar_dados_ibama.py
 
