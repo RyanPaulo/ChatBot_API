@@ -2,14 +2,17 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, status
 import os
 import shutil
 
+
+
 router = APIRouter(
     prefix="/documentos",
     tags=["Documentos"]
 )
 
-# Define o caminho para a pasta que o seu script 'watcher' está monitorando
-# É CRUCIAL que este caminho esteja correto em relação a onde a API está rodando.
-WATCH_FOLDER_PATH = os.path.join('D:\APS\api_gemini\connectors', 'teams_mock_files')
+
+# Caminho para a pasta que o seu script 'watcher' está monitorando
+WATCH_FOLDER_PATH ="D:/APS/api_gemini/connectors/teams_mock_files"
+
 
 # Garante que a pasta de destino exista ao iniciar a API
 os.makedirs(WATCH_FOLDER_PATH, exist_ok=True)
@@ -31,8 +34,7 @@ async def upload_documento(file: UploadFile = File(...)):
         )
 
     try:
-        # Define o caminho completo onde o arquivo será salvo
-        # Usamos o nome original do arquivo enviado pelo usuário
+        # Caminho completo onde o arquivo será salvo
         destination_path = os.path.join(WATCH_FOLDER_PATH, file.filename)
 
         print(f"Recebendo arquivo: {file.filename}")
