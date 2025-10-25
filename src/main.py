@@ -26,6 +26,6 @@ app.include_router(ia_services.router)
 
 
 # **** ENDPOINT RAIZ PARA VERIFICAR SE A API ESTA ONLINE ****
-@app.get("/", tags=["Root"])
+@app.get("/get_boas_vindas", tags=["Root"])
 def read_root():
     return  {"message": "Bem-vindo á API do Chatbot Academico!"}

@@ -1,5 +1,7 @@
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, status
+# from idlelib.query import Query
+from typing import Annotated
+from fastapi import APIRouter, HTTPException, status, Query
 from ..supabase_client import supabase
 from ..schemas.sch_base_conhecimento import BaseConhecimento, BaseConhecimentoCreate, BaseConhecimentoUpdate
 import uuid
@@ -62,19 +64,25 @@ def create_conhecimento(item: BaseConhecimentoCreate):
         raise HTTPException(status_code=400, detail=str(e))
 
 ### ENDPOINT PARA LISTA TODOS OS ITEM DE CONHECIMENTO ###
-@router.get("/", response_model=list[BaseConhecimento])
-def list_conhecimento():
+@router.get("/get_buscar")
+async def buscar_conhecimento(q: Annotated[str, Query(..., min_length=3, description="Termo de busca para a pergunta do usuário")] ):
     try:
-        response = supabase.table("baseconhecimento").select("*").order("criado_em", desc=True).execute()
+        response = supabase.rpc("buscar_conteudo", {"query": q}).execute()
 
 
-        processed_data = [convert_json_fields(item) for item in response.data]
-        return processed_data
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Nenhum conteúdo relevante encontrado.")
+
+        # Retorna apenas uma lista de textos (resumos)
+        return {"contextos": [item['conteudo_processado'] for item in response.data]}
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"ERRO DETALHADO NA BUSCA: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar no banco de dados: {e}")
 
 ### ENDPOINT PARA CONSULTA UM ITEM DE CONHECIMENTO ###
-@router.get("/{item_id}", response_model=BaseConhecimento)
+@router.get("/get_baseconhecimento_id/{item_id}", response_model=BaseConhecimento)
 def get_conhecimento(item_id: uuid.UUID):
     try:
         response = supabase.table("baseconhecimento").select("*").eq('id_conhecimento', str(item_id)).single().execute()
@@ -88,7 +96,7 @@ def get_conhecimento(item_id: uuid.UUID):
         raise HTTPException(status_code=500, detail=str(e))
 
 ### ENDPOINT PARA ATUALIZAR UM ITEM DE CONHECIMENTO ###
-@router.put("/{item_id}", response_model=BaseConhecimento)
+@router.put("/update/{item_id}", response_model=BaseConhecimento)
 def update_conhecimento(item_id: uuid.UUID, item: BaseConhecimentoUpdate):
     try:
         payload = item.model_dump(exclude_unset=True)
@@ -114,7 +122,7 @@ def update_conhecimento(item_id: uuid.UUID, item: BaseConhecimentoUpdate):
         raise HTTPException(status_code=500, detail=str(e))
 
 ### ENDPOINT PARA DELETAR UM ITEM DE CONHECIMENTO ###
-@router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/delete/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_conhecimento(item_id: uuid.UUID):
     try:
         response = supabase.table("baseconhecimento").delete().eq('id_conhecimento', str(item_id)).execute()

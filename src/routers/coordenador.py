@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, status
+from typing import List
 from src.supabase_client import supabase
 from src.schemas.sch_coordenador import CoordenadorCreate, Coordenador, CoordenadorUpdate
 
@@ -13,10 +14,14 @@ router = APIRouter(
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=Coordenador)
 def create_coordenador(coordenador_data: CoordenadorCreate):
     try:
-
         auth_response = supabase.auth.sign_up({
             "email": coordenador_data.email_institucional,
-            "password": coordenador_data.password
+            "password": coordenador_data.password,
+            "options": {
+                "data": {
+                    "name": f"{coordenador_data.nome_coordenador} {coordenador_data.sobrenome_coordenador}"
+                }
+            }
         })
         user_id = auth_response.user.id
 
@@ -39,8 +44,17 @@ def create_coordenador(coordenador_data: CoordenadorCreate):
 
     # **** ENDPOINT PARA ATUALIZAR CADASTRO DO COORDENADOR ****
 
+### ENDPOINT PARA LISTAR TODOS OS ALUNOS CADASTRADOS NO BD ###
+@router.get("/get_list_coordenador/", response_model=List[Coordenador])
+def get_all_aluno():
+    try:
+        response = supabase.table("coordenador").select("*").execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 ### ENDPOINT PARA ATUALIZAR COORDENADOR ###
-@router.put("/{id}", response_model=Coordenador)
+@router.put("/updade/{id}", response_model=Coordenador)
 def update_coordenador(id: str, coordenador_update_data: CoordenadorUpdate):
     try:
 
@@ -60,7 +74,7 @@ def update_coordenador(id: str, coordenador_update_data: CoordenadorUpdate):
         raise HTTPException(status_code=500, detail=str(e))
 
 ### ENDPOINR PARA DELETAR COORDENADOR ###
-@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/delete/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_coordenador(id: str):
     try:
         response = supabase.table('coordenador').delete().eq('id_funcional', id).execute()

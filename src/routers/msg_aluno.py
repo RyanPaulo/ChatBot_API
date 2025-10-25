@@ -49,7 +49,7 @@ def create_mensagem_aluno(item: MensagemAlunoCreate):
         raise HTTPException(status_code=400, detail=str(e))
 
 ### ENDPOINT PARA LISTAR TODAS AS MENSAGENS ###
-@router.get("/", response_model=List[MensagemAluno])
+@router.get("/get_lista_msg/", response_model=List[MensagemAluno])
 def list_mensagens_aluno():
     try:
         # Para consulta na tabela 'MensagemAluno'
@@ -62,7 +62,7 @@ def list_mensagens_aluno():
 
 ### ENDPOINT PARA ATUALIZAR A MENSAGE ###
 # Esse endpoint sera usado somente para teste de desenvolvimento
-@router.put("/{item_id}", response_model=MensagemAluno)
+@router.put("/update/{item_id}", response_model=MensagemAluno)
 def update_mensagem(item_id: uuid.UUID, item: MensagemAlunoUpdate):
     try:
         payload = item.model_dump(exclude_unset=True)
@@ -85,7 +85,7 @@ def update_mensagem(item_id: uuid.UUID, item: MensagemAlunoUpdate):
 
 ### ENDPOINT PARA DELETAR UMA MENSAGEM DE ALUNO ###
 # **Esse endpoint sera usado somente para teste de desenvolvimento**
-@router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/delete/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_mensagem(item_id: uuid.UUID):
     try:
         db_response = supabase.table("mensagemaluno").delete().eq('id_mensagem', str(item_id)).execute()

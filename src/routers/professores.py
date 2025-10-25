@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 from src.supabase_client import supabase
 from ..schemas.sch_professor import ProfessorCreate, Professor, ProfessorUpdate
+from typing import List
 
 # --- ROUTER PROFESSORES ---
 
@@ -16,7 +17,12 @@ def create_professor(professor_data: ProfessorCreate):
         # Para gravar email e senha dos professores no auth do supabase
         auth_response = supabase.auth.sign_up({
             "email": professor_data.email_institucional,
-            "password": professor_data.password
+            "password": professor_data.password,
+            "options": {
+                "data": {
+                    "name": f"{professor_data.nome_professor} {professor_data.sobrenome_professor}"
+                }
+            }
         })
         user_id = auth_response.user.id
 
@@ -36,8 +42,17 @@ def create_professor(professor_data: ProfessorCreate):
     except Exception as e:
         raise  HTTPException(status_code=400, detail=str(e))
 
+### ENDPOINT PARA LISTAR TODOS OS PROFESSORES CADASTRADOS NO BD ###
+@router.get("/lista_professores/", response_model=List[Professor])
+def get_all_professores():
+    try:
+        response = supabase.table("professor").select("*").execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 ### ENDPOINT PARA ATUALIZAR CADASTRO DO PROFESSORES ###
-@router.put("/{id}", response_model=Professor)
+@router.put("/update/{id}", response_model=Professor)
 def update_professor(id: str, professor_update_data: ProfessorUpdate):
     try:
 
@@ -56,7 +71,7 @@ def update_professor(id: str, professor_update_data: ProfessorUpdate):
         raise HTTPException(status_code=500, detail=str(e))
 
 ### ENDPOINR PARA DELETAR PROFESSORES ###
-@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/detele/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_professor(id: str):
     try:
         response = supabase.table('professor').delete().eq('id_funcional', id).execute()

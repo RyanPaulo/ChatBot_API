@@ -42,7 +42,7 @@ def create_cronograma(cronograma_data: CronogramaCreate):
         raise HTTPException(status_code=400, detail=str(e))
 
 #### ENDPOINT PARA CONSULTAR OS CRONOGRAMA USANDO O ID ####
-@router.get("/{cronograma_id}", response_model=Cronograma)
+@router.get("/get_cronograma_id/{cronograma_id}", response_model=Cronograma)
 def get_cronograma(cronograma_id: uuid.UUID):
     try:
         db_response = supabase.table("cronograma").select("*").eq('id_cronograma', str(cronograma_id)).single().execute()
@@ -55,7 +55,7 @@ def get_cronograma(cronograma_id: uuid.UUID):
         raise HTTPException(status_code=500, detail=str(e))
 
 ##### ENDPOINT PARA ATUALIZAR O CRONOGRAMA USANDO O ID ####
-@router.put("/{cronograma_id}", response_model=Cronograma)
+@router.put("/updade/{cronograma_id}", response_model=Cronograma)
 def update_cronograma(cronograma_id: uuid.UUID, cronograma_data: CronogramaUpdate):
     try:
         update_payload = cronograma_data.model_dump(exclude_unset=True)
@@ -90,7 +90,7 @@ def update_cronograma(cronograma_id: uuid.UUID, cronograma_data: CronogramaUpdat
         raise HTTPException(status_code=500, detail=str(e))
 
 ##### ENDPOINT PARA DELETAR UM CRONOGRAMA USANDO O ID ####
-@router.delete("/{cronograma_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/delete/{cronograma_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_cronograma(cronograma_id: uuid.UUID):
     try:
 

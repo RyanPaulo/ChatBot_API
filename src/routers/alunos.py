@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, status
+from typing import List
 from src.supabase_client import supabase
 from src.schemas.sch_aluno import AlunoCreate, Aluno, AlunoUpdate
 import uuid
@@ -17,7 +18,12 @@ def create_aluno(aluno_data: AlunoCreate):
         # Criar o usuario no Supabase Auth
         auth_response = supabase.auth.sign_up({
             "email": aluno_data.email_institucional,
-            "password": aluno_data.password
+            "password": aluno_data.password,
+            "options": {
+                "data": {
+                    "name": f"{aluno_data.nome} {aluno_data.sobrenome_aluno}"
+                }
+            }
         })
         user_id = auth_response.user.id
 
@@ -58,7 +64,7 @@ def create_aluno(aluno_data: AlunoCreate):
 
 
 ### ENDPOINT PARA BUSCAR UM ALUNO PELO EMAIL ###
-@router.get("/email/{email}", response_model=Aluno)
+@router.get("/get_email/{email}", response_model=Aluno)
 def get_aluno_by_email(email: str):
     try:
         # Realiza a consulta na tabela "aluno" filtrando pelo email_institucional
@@ -83,9 +89,18 @@ def get_aluno_by_email(email: str):
             detail=f"Um erro inesperado ocorreu: {str(e)}"
         )
 
+### ENDPOINT PARA LISTAR TODOS OS ALUNOS CADASTRADOS NO BD ###
+@router.get("/get_list_alunos/", response_model=List[Aluno])
+def get_all_aluno():
+    try:
+        response = supabase.table("aluno").select("*").execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 ### ENDPOINT PARA ATUALIZAR UM ALUNO ###
 # Utilizando o RA do aluno como referencia o RA do aluno
-@router.put("/{ra}", response_model=Aluno)
+@router.put("/update/{ra}", response_model=Aluno)
 def update_aluno(ra: str, aluno_update_data: AlunoUpdate):
     try:
         # Cria um dicionario apensa com os dados que foram enviados (nâo none)
@@ -133,7 +148,7 @@ def update_aluno(ra: str, aluno_update_data: AlunoUpdate):
         raise HTTPException(status_code=500, detail=str(e))
 
 ### ENDPOINT PARA DELETAR UM ALUNO ###
-@router.delete("/{ra}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/delete/{ra}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_aluno(ra: str):
     # ** Lembrar que essa função não remove o usuário do sistema de autenticação do Supabase.
     try:

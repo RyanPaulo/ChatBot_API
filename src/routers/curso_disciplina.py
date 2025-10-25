@@ -50,7 +50,7 @@ def create_disciplina_a_curso(association_data: CursoDisciplinaCreate):
         raise HTTPException(status_code=400, detail=str(e))
 
 ### ENDPOINT PARA DELETAR AS ASSOCIAÇOES ###
-@router.delete("/{id_curso}/{id_disciplina}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/detele/{id_curso}/{id_disciplina}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_disciplina_of_curso(id_curso: uuid.UUID, id_disciplina: uuid.UUID):
     try:
         # Busca todos os alunos do curso que serão afetados

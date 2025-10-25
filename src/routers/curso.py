@@ -43,7 +43,7 @@ def create_curso(item: CursoCreate):
         raise HTTPException(status_code=400, detail=str(e))
 
 ### ENDPOINT PARA CONSULTAR OS CRONOGRAMA USANDO O ID ###
-@router.get("/{curso_id}", response_model=Curso)
+@router.get("/get_curso/{curso_id}", response_model=Curso)
 def get_curso(curso_id: uuid.UUID):
     try:
         db_response = supabase.table("curso").select("*").eq('id_curso', str(curso_id)).single().execute()
@@ -58,7 +58,7 @@ def get_curso(curso_id: uuid.UUID):
         raise HTTPException(status_code=500, detail=str(e))
 
 ### ENDPOINT PARA ATUALIZAR UM ITEM DE CONHECIMENTO ###
-@router.put("/{curso_id}", response_model=Curso)
+@router.put("/updade/{curso_id}", response_model=Curso)
 def update_conhecimento(curso_id: uuid.UUID, curso_data: CursoUpadate):
     try:
         update_payload = curso_data.model_dump(exclude_unset=True)
@@ -79,7 +79,7 @@ def update_conhecimento(curso_id: uuid.UUID, curso_data: CursoUpadate):
         raise HTTPException(status_code=500, detail=str(e))
 
 ### ENDPOINT PARA DELETAR UM CRONOGRAMA USANDO O ID ###
-@router.delete("/{curso_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/detele/{curso_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_curso(curso_id: uuid.UUID):
     try:
         db_response = supabase.table('curso').delete().eq('id_curso', str(curso_id)).execute()

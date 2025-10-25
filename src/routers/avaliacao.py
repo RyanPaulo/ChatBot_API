@@ -41,7 +41,7 @@ def crete_avaliacao(avaliacao_data: AvaliacaoCreate):
         raise HTTPException(status_code=400, detail=str(e))
 
 ### ENDPOINT PARA CONSULTAR AS AVALIAÇÃO USANDO O ID ###
-@router.get("/{avalicao_id}", response_model=Avaliacao)
+@router.get("/get_avaliacao/{avalicao_id}", response_model=Avaliacao)
 def get_avaliacao(avaliacao_id: uuid.UUID):
     try:
         response = supabase.table("avaliacao").select("*").eq('id_avaliacao', str(avaliacao_id)).single().execute()
@@ -54,7 +54,7 @@ def get_avaliacao(avaliacao_id: uuid.UUID):
         raise HTTPException(status_code=500, detail=str(e))
 
 ### ENDPOIN PARA ATUALIZAR UMA AVALIAÇÃO ###
-@router.put("/{avaliacao_id}", response_model=Avaliacao)
+@router.put("/update/{avaliacao_id}", response_model=Avaliacao)
 def update_avaliacao(avaliacao_id: uuid.UUID, avaliacao_data: AvaliacaoUpdate):
     try:
         update_payload = avaliacao_data.model_dump(exclude_unset=True)
@@ -82,7 +82,7 @@ def update_avaliacao(avaliacao_id: uuid.UUID, avaliacao_data: AvaliacaoUpdate):
         raise HTTPException(status_code=500, detail=str(e))
 
 ### ENDPOIN PARA DELETAR UMA AVALIACAO ###
-@router.delete("/{avaliacao_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/detele/{avaliacao_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_avaliacao(avaliacao_id: uuid.UUID):
     try:
 

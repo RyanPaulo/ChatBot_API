@@ -1,5 +1,4 @@
 from typing import List
-
 from fastapi import APIRouter, HTTPException, status
 from ..supabase_client import supabase
 from ..schemas.sch_aviso import Aviso, AvisoCreate, AvisoUpdate
@@ -42,7 +41,7 @@ def create_aviso(aviso_data: AvisoCreate):
         raise HTTPException(status_code=400, detail=(e))
 
 ### ENDPOINT PARA CONSULTA DA TABELA AVISO ###
-@router.get("/{aviso_id}", response_model=Aviso)
+@router.get("/get_aviso_id/{aviso_id}", response_model=Aviso)
 def get_aviso(aviso_id: uuid.UUID):
     try:
         response = supabase.table("aviso").select("*").eq('id_aviso', str(aviso_id)).sigle().execute()
@@ -55,7 +54,7 @@ def get_aviso(aviso_id: uuid.UUID):
         raise HTTPException(status_code=500, detail=str(e))
 
 ### ENDPOINT PARA LISTAR TODOS OS AVISOS ###
-@router.get("/", response_model=List[Aviso])
+@router.get("/get_lista_aviso/", response_model=List[Aviso])
 def get_all_avisos():
     try:
         response = supabase.table("aviso").select("*").execute()
@@ -64,7 +63,7 @@ def get_all_avisos():
         raise HTTPException(status_code=500, detail=str(e))
 
 ### ENDPOINT PARA ATUALIZAR UM AVISO ###
-@router.put("/{aviso_id}", response_model=Aviso)
+@router.put("/update/{aviso_id}", response_model=Aviso)
 def update_aviso(aviso_id: uuid.UUID, aviso_data: AvisoUpdate):
     try:
         update_payload = aviso_data.model_dump(exclude_unset=True)
@@ -91,7 +90,7 @@ def update_aviso(aviso_id: uuid.UUID, aviso_data: AvisoUpdate):
         raise HTTPException(status_code=500, detail=str(e))
 
 ### ENDPOIND PARA DELETAR O AVISO ###
-@router.delete("/{aviso_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/delete/{aviso_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_aviso(aviso_id: uuid.UUID):
     try:
         response = supabase.table('aviso').delete().eq('id_aviso', str(aviso_id)).execute()

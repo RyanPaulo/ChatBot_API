@@ -18,7 +18,6 @@ def create_disciplina(disciplina_data: DisciplinaCreate):
     try:
         disciplina_payload = disciplina_data.model_dump()
 
-
         disciplina_payload['id_professor'] = str(disciplina_payload['id_professor'])
 
         db_response = supabase.table("disciplina").insert(disciplina_payload).execute()
@@ -34,7 +33,7 @@ def create_disciplina(disciplina_data: DisciplinaCreate):
         raise HTTPException(status_code=400, detail=str(e))
 
 ##### ENDPOINT PARA CONSULTAR AS DISCIPLINAS USANDO O ID ####
-@router.get("/{disciplina}", response_model=Disciplina)
+@router.get("/get_diciplina_id/{disciplina}", response_model=Disciplina)
 def get_discilina(disciplina_id: uuid.UUID):
     try:
         db_response = supabase.table("disciplina").select("*").eq('id_disciplina', str(disciplina_id)).single().execute()
@@ -45,7 +44,7 @@ def get_discilina(disciplina_id: uuid.UUID):
         raise HTTPException(status_code=500, detail=str(e))
 
 #### ENDPOINT PARA BUSCAR O CRONOGRAMA DE UMA DISCIPLINA PELO NOME ####
-@router.get("/{nome_disciplina}/cronograma", response_model=List[Cronograma], tags=["disciplina"])
+@router.get("/get_diciplina_nome/{nome_disciplina}/cronograma", response_model=List[Cronograma]) #tags=["disciplina"]
 def get_cronograma_por_disciplina(nome_disciplina: str):
     try:
         # 1. Encontrar o ID da disciplina a partir do nome
@@ -72,8 +71,17 @@ def get_cronograma_por_disciplina(nome_disciplina: str):
         # Captura outras exceções genéricas
         raise HTTPException(status_code=500, detail=str(e ))
 
+### ENDPOINT PARA LISTAR TODOS OS DISCIPLINA CADASTRADOS NO BD ###
+@router.get("/lista_disciplina/", response_model=list[Disciplina])
+def get_all_disciplina():
+    try:
+        response = supabase.table("disciplina").select("*").execute()
+        return response.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 ### ENDPOINT PARA ATUALIZAR AVALIACAO ###
-@router.put("/{disciplina_id}", response_model=Disciplina)
+@router.put("/update/{disciplina_id}", response_model=Disciplina)
 def update_disciplina(disciplina_id: uuid.UUID, disciplina_data: DisciplinaUpdate):
     try:
         update_payload = disciplina_data.model_dump(exclude_unset=True)
@@ -98,7 +106,7 @@ def update_disciplina(disciplina_id: uuid.UUID, disciplina_data: DisciplinaUpdat
         raise HTTPException(status_code=500, detail=str(e))
 
 ### ENDPOINT PARA DELETAR AVALIACAO ###
-@router.delete("/{disciplina_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/delete/{disciplina_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_disciplina(disciplina_id: uuid.UUID):
     try:
         db_response = supabase.table('disciplina').delete().eq('id_disciplina', str(disciplina_id)).execute()

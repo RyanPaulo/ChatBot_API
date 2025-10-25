@@ -7,7 +7,7 @@ import uuid
 # Base com os campos comuns
 class AlunoBase(BaseModel):
     matricula_ra: str
-    nome_aluno: str
+    nome: str
     sobrenome_aluno: str
     email_institucional: EmailStr
     semestre: int
@@ -27,7 +27,7 @@ class Aluno(AlunoBase):
 
 # Class para atualizar parametros nao tabela aluno
 class AlunoUpdate(BaseModel):
-    nome_aluno: Optional[str] = None
+    nome: Optional[str] = None
     sobrenome_aluno: Optional[str] = None
     email_institucional: Optional[EmailStr] = None
     semestre: Optional[int] = None
