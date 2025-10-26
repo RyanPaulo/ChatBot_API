@@ -21,13 +21,13 @@ def create_aluno(aluno_data: AlunoCreate):
             "password": aluno_data.password,
             "options": {
                 "data": {
-                    "name": f"{aluno_data.nome} {aluno_data.sobrenome_aluno}"
+                    "name": f"{aluno_data.nome_aluno} {aluno_data.sobrenome_aluno}"
                 }
             }
         })
         user_id = auth_response.user.id
 
-        # Prepara os dados do aluno para inserção na tabela "Aluno"
+        # Prepara os dados do aluno ser adiconado na tabela "Aluno"
         aluno_profile_data = aluno_data.model_dump(exclude={"password"})
         aluno_profile_data["id"] = user_id
         aluno_profile_data['id_curso'] = str(aluno_profile_data['id_curso'])
@@ -153,14 +153,25 @@ def delete_aluno(ra: str):
     # ** Lembrar que essa função não remove o usuário do sistema de autenticação do Supabase.
     try:
         # Executa o delete no Supabase | tabela = aluno | indentificado do aluno = matricula_ra
-        response = supabase.table('aluno').delete().eq('matricula_ra', ra).execute()
+        response = supabase.table("aluno").select("id").eq("matricula_ra", ra).execute()
 
         # Verifica se algum dado foi retornado (o que segnifica que algo foi deletado)
         if not response.data:
             raise HTTPException(status_code=404, detail="Aluno nao encontrado para deletar.")
+
+        aluno_id = response.data[0]['id']
+
+        delete_response = supabase.table('aluno').delete().eq('id', aluno_id).execute()
+
+        if not delete_response.data:
+            raise HTTPException(status_code=500, detail="Falha ao deletar o perfil do aluno. A operação foi abortada.")
+
+        auth_delete_response = supabase.auth.admin.delete_user(aluno_id)
 
         # HTTP 204 nao deve retornar nenhum corpo de resposta
         return
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
