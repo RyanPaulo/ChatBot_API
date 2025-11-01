@@ -9,6 +9,7 @@ class AvisoBase(BaseModel):
     titulo: str
     conteudo: str
     data: datetime = Field(..., example="0000-00-00T00:00")
+    id_disciplina: Optional[uuid.UUID] = None
     id_professor: Optional[uuid.UUID] = None
     id_coordenador: Optional[uuid.UUID] = None
 
@@ -39,5 +40,6 @@ class AvisoUpdate(BaseModel):
     titulo: Optional[str] = None
     conteudo: Optional[str] = None
     data: Optional[datetime] = Field(None, example="0000-00-00T00:00") # example > para editar o formado de edição
+    id_disciplina: Optional[uuid.UUID] = None
     id_professor: Optional[uuid.UUID] = None
     id_coordenador: Optional[uuid.UUID] = None

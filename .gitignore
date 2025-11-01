@@ -2,6 +2,7 @@
 .venv/
 .env/
 .Dockerfile/
+env.txt/
 
 # Pastas e arquivos do Rasa que não precisam de versionamento
 .rasa/

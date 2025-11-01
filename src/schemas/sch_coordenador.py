@@ -1,5 +1,6 @@
-from pydantic import BaseModel, EmailStr
-from typing import Optional
+from datetime import time
+from pydantic import BaseModel, EmailStr, Field
+from typing import Optional, List
 import uuid
 
 
@@ -10,6 +11,10 @@ class CoordenadorBase(BaseModel):
     sobrenome_coordenador: str
     email_institucional: EmailStr
     departamento: str
+
+    dias_atendimento: Optional[List[str]] = Field(default_factory=list)
+    atendimento_hora_inicio: Optional[time] = Field(None, example="00:00")
+    atendimento_hora_fim: Optional[time] = Field(None, example="00:00")
 
 class CoordenadorCreate(CoordenadorBase):
     password: str
@@ -25,3 +30,7 @@ class CoordenadorUpdate(BaseModel):
     sobrenome_coordenador: Optional[str] = None
     email_institucional: Optional[EmailStr] = None
     departamento: Optional[str] = None
+
+    dias_atendimento: Optional[List[str]] = Field(default_factory=list)
+    atendimento_hora_inicio: Optional[time] = Field(None, example="00:00")
+    atendimento_hora_fim: Optional[time] = Field(None, example="00:00")

@@ -2,7 +2,7 @@ from typing import List
 from ..schemas.sch_cronograma import Cronograma
 from fastapi import APIRouter, HTTPException, status
 from ..supabase_client import supabase
-from ..schemas.sch_disciplina import DisciplinaCreate, Disciplina, DisciplinaUpdate
+from ..schemas.sch_disciplina import DisciplinaCreate, Disciplina, DisciplinaUpdate, DisciplinaEmenta
 import uuid
 
 # --- ROUTER DISCIPLINA ---
@@ -18,7 +18,7 @@ def create_disciplina(disciplina_data: DisciplinaCreate):
     try:
         disciplina_payload = disciplina_data.model_dump()
 
-        disciplina_payload['id_professor'] = str(disciplina_payload['id_professor'])
+        # disciplina_payload['id_professor'] = str(disciplina_payload['id_professor'])
 
         db_response = supabase.table("disciplina").insert(disciplina_payload).execute()
 
@@ -34,29 +34,86 @@ def create_disciplina(disciplina_data: DisciplinaCreate):
 
 ##### ENDPOINT PARA CONSULTAR AS DISCIPLINAS USANDO O ID ####
 @router.get("/get_diciplina_id/{disciplina}", response_model=Disciplina)
-def get_discilina(disciplina_id: uuid.UUID):
+def get_disciplina_detalhado(disciplina_id: uuid.UUID):
     try:
-        db_response = supabase.table("disciplina").select("*").eq('id_disciplina', str(disciplina_id)).single().execute()
+        db_response = supabase.table("disciplina").select(
+            """
+            *,
+            professordisciplina!left(
+                professor!inner(nome_professor, sobrenome_professor)
+            ),
+            cronograma!left(tipo_aula)
+            """
+        ).eq(
+            'id_disciplina', str(disciplina_id)
+        ).single().execute()
+
         if not db_response.data:
             raise HTTPException(status_code=404, detail="Disiciplina não encontrada.")
-        return db_response.data
+
+
+        data = db_response.data
+
+        # 1. Processar os professores
+        professores_list = []
+        # A resposta pode não conter a chave se não houver relação
+        if data.get('professordisciplina'):
+            for item in data['professordisciplina']:
+                if item and item.get('professor'):  # Checagem dupla de segurança
+                    professores_list.append(item['professor'])
+        data['professores'] = professores_list
+        if 'professordisciplina' in data:
+            del data['professordisciplina']
+
+        # 2. Processar o tipo de aula
+        # A resposta pode não conter a chave se não houver relação
+        if data.get('cronograma') and data['cronograma']:
+            data['tipo_aula'] = data['cronograma'][0]['tipo_aula']
+        else:
+            data['tipo_aula'] = None
+        if 'cronograma' in data:
+            del data['cronograma']
+
+
+        return Disciplina.model_validate(data)
+
+        # return db_response.data
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+### ENDPOINT PARA RETORNAR O CONTEUDO DA EMENTA ###
+@router.get("/get_ementa/{disciplina_id}", response_model=DisciplinaEmenta)
+def get_ementa_da_disciplina(disciplina_id: uuid.UUID):
+    try:
+        # seleciona apenas a coluna 'ementa' da tabela 'Disciplina'
+        db_response = supabase.table("disciplina").select(
+            "ementa"
+        ).eq(
+            'id_disciplina', str(disciplina_id)
+        ).single().execute()
+
+
+        if not db_response.data:
+            raise HTTPException(status_code=404, detail="Disciplina não encontrada.")
+
+        return db_response.data
+
+    except Exception as e:
+        if "JSON object requested, multiple (or no) rows returned" in str(e):
+             raise HTTPException(status_code=404, detail="Disciplina não encontrada.")
         raise HTTPException(status_code=500, detail=str(e))
 
 #### ENDPOINT PARA BUSCAR O CRONOGRAMA DE UMA DISCIPLINA PELO NOME ####
 @router.get("/get_diciplina_nome/{nome_disciplina}/cronograma", response_model=List[Cronograma]) #tags=["disciplina"]
 def get_cronograma_por_disciplina(nome_disciplina: str):
     try:
-        # 1. Encontrar o ID da disciplina a partir do nome
-        disciplina_response = supabase.table("disciplina").select("id").ilike("nome", f"%{nome_disciplina}%").execute()
+        disciplina_response = supabase.table("disciplina").select("id_disciplina").ilike("nome_disciplina", f"%{nome_disciplina}%").execute()
 
         if not disciplina_response.data:
             raise HTTPException(status_code=404, detail=f"Disciplina '{nome_disciplina}' não encontrada.")
 
-        # Pega o ID da primeira disciplina encontrada
-        disciplina_id = disciplina_response.data[0]['id']
+        disciplina_id = disciplina_response.data[0]['id_disciplina']
 
-        # 2. Buscar os cronogramas associados a esse ID de disciplina
         cronograma_response = supabase.table("cronograma").select("*").eq('id_disciplina', disciplina_id).execute()
 
         if not cronograma_response.data:
@@ -64,8 +121,8 @@ def get_cronograma_por_disciplina(nome_disciplina: str):
 
         return cronograma_response.data
 
+
     except HTTPException as http_exc:
-        # Re-lança a exceção HTTP para que o FastAPI a manipule corretamente
         raise http_exc
     except Exception as e:
         # Captura outras exceções genéricas

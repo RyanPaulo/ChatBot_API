@@ -8,17 +8,19 @@ import uuid
 
 class CronogramaBase(BaseModel):
     nome_disciplina: str
-    dia_semana: int = Field(..., ge=1, le=7)
     hora_inicio: time = Field(..., example="00:00") # Feild = para criar um molde de preencimento da hora
     hora_fim: time = Field(..., example="00:00")
-    tipo_aula:  str
-    sala: int
-    andar: int
-    bloco: str
-    periodicidade: str = "samanal"
-    data_inicio_semestre: date = Field(..., example="0000-00-00") # Feild = para criar um molde de preencimento da data
-    data_fim_semestre: date = Field(..., example="0000-00-00")
+    periodicidade: str = "semanal"
     id_disciplina: uuid.UUID
+
+    dia_semana: Optional[int] = Field(None, ge=1, le=7)
+    tipo_aula: Optional[str] = None
+    sala: Optional[int] = None
+    andar: Optional[int] = None
+    bloco: Optional[str] = None
+    data_inicio_semestre: Optional[date] = Field(None, example="0000-00-00") # Feild = para criar um molde de preencimento da data
+    data_fim_semestre: Optional[date] = Field(None, example="0000-00-00")
+
 
 class CronogramaCreate(CronogramaBase):
     pass
@@ -36,8 +38,8 @@ class CronogramaUpdate(BaseModel):
     hora_inicio: Optional[time] = Field(None, example="00:00")
     hora_fim: Optional[time] = Field(None, example="00:00")
     tipo_aula: Optional[str] = None
-    sala: Optional[str] = None
-    andar: Optional[str] = None
+    sala: Optional[int] = None
+    andar: Optional[int] = None
     bloco: Optional[str] = None
     periodicidade: Optional[str] = None
     data_inicio_semestre: Optional[date] = Field(None, example="0000-00-00")

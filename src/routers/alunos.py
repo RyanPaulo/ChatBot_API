@@ -21,7 +21,8 @@ def create_aluno(aluno_data: AlunoCreate):
             "password": aluno_data.password,
             "options": {
                 "data": {
-                    "name": f"{aluno_data.nome_aluno} {aluno_data.sobrenome_aluno}"
+                    "name": f"{aluno_data.nome_aluno} {aluno_data.sobrenome_aluno}",
+                    "role": "aluno"
                 }
             }
         })

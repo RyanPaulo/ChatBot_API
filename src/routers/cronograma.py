@@ -1,3 +1,4 @@
+from typing import List
 from fastapi import APIRouter, HTTPException, status
 from ..supabase_client import supabase
 from ..schemas.sch_cronograma import CronogramaCreate, Cronograma, CronogramaUpdate
@@ -18,10 +19,13 @@ def create_cronograma(cronograma_data: CronogramaCreate):
         cronograma_payload = cronograma_data.model_dump()
 
         # Converter as datas para o padrao json
-        cronograma_payload['data_inicio_semestre'] = cronograma_payload['data_inicio_semestre'].isoformat()
-        cronograma_payload['data_fim_semestre'] = cronograma_payload['data_fim_semestre'].isoformat()
+        if cronograma_payload.get('data_inicio_semestre'):
+            cronograma_payload['data_inicio_semestre'] = cronograma_payload['data_inicio_semestre'].isoformat()
 
-        # Converter as horas para o padrao json
+        if cronograma_payload.get('data_fim_semestre'):
+            cronograma_payload['data_fim_semestre'] = cronograma_payload['data_fim_semestre'].isoformat()
+
+
         cronograma_payload['hora_inicio'] = cronograma_payload['hora_inicio'].isoformat()
         cronograma_payload['hora_fim'] = cronograma_payload['hora_fim'].isoformat()
 
@@ -53,6 +57,24 @@ def get_cronograma(cronograma_id: uuid.UUID):
         return db_response.data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+### ENDPOINT PARA CONSULTAR O CRONOGRAMA VIA O ID DA DISCIPLINA ###
+@router.get("/disciplina/{disciplina_id}", response_model=List[Cronograma])
+def get_cronogramas_por_disciplina(disciplina_id: uuid.UUID):
+    try:
+        # Consulta a tabela 'cronograma' e filtra pela coluna 'id_disciplina'
+        db_response = supabase.table("cronograma").select(
+            "*"
+        ).eq(
+            'id_disciplina', str(disciplina_id)
+        ).execute()
+
+        return db_response.data
+
+    except Exception as e:
+        # Captura erros inesperados do banco de dados ou de conexão
+        raise HTTPException(status_code=500, detail=f"Um erro inesperado ocorreu: {str(e)}")
+
 
 ##### ENDPOINT PARA ATUALIZAR O CRONOGRAMA USANDO O ID ####
 @router.put("/updade/{cronograma_id}", response_model=Cronograma)

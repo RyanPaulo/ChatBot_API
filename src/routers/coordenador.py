@@ -29,6 +29,9 @@ def create_coordenador(coordenador_data: CoordenadorCreate):
         coordenador_profile_data = coordenador_data.model_dump(exclude={"password"})
         coordenador_profile_data["id"] = user_id
 
+        # Para converter os time
+        coordenador_profile_data['atendimento_hora_inicio'] = coordenador_profile_data['atendimento_hora_inicio'].isoformat()
+        coordenador_profile_data['atendimento_hora_fim'] = coordenador_profile_data['atendimento_hora_fim'].isoformat()
 
         db_response = supabase.table("coordenador").insert(coordenador_profile_data).execute()
 
@@ -60,6 +63,12 @@ def update_coordenador(id: str, coordenador_update_data: CoordenadorUpdate):
 
         update_payload = coordenador_update_data.model_dump(exclude_unset=True)
 
+        if 'atendimento_hora_inicio' in update_payload:
+            update_payload['atendimento_hora_inicio'] = update_payload['atendimento_hora_inicio'].isoformat()
+
+        if 'atendimento_hora_fim' in update_payload:
+            update_payload['atendimento_hora_fim'] = update_payload['atendimento_hora_fim'].isoformat()
+
 
         if not update_payload:
             raise HTTPException(status_code=400, detail="Nenhum dado fornecido para atualiuzação.")
@@ -77,12 +86,23 @@ def update_coordenador(id: str, coordenador_update_data: CoordenadorUpdate):
 @router.delete("/delete/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_coordenador(id: str):
     try:
-        response = supabase.table('coordenador').delete().eq('id_funcional', id).execute()
+        response = supabase.table('coordenador').select("id").eq('id_funcional', id).execute()
 
         if not response.data:
             raise HTTPException(status_code=404, detail="Coordenador não encontrado para deletar")
 
+
+        coordeandor_id = response.data[0]['id']
+
+        delete_response = supabase.table('coordenador').delete().eq('id', coordeandor_id).execute()
+
+        if not delete_response.data:
+            raise HTTPException(status_code=500, detail="Falha ao deletar o perfil do aluno. A operação foi abortada.")
+
+        auth_delete_response = supabase.auth.admin.delete_user(coordeandor_id)
         return
+
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+

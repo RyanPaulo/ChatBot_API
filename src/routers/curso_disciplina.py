@@ -1,6 +1,8 @@
+from src.schemas.sch_disciplina import Disciplina
 from fastapi import APIRouter, HTTPException, status
 from ..supabase_client import supabase
 from pydantic import BaseModel
+from typing import List
 import uuid
 
 # --- ROUTER CURSO DISCIPLINA ---
@@ -48,6 +50,27 @@ def create_disciplina_a_curso(association_data: CursoDisciplinaCreate):
         if "duplicate key value violates unique constraint" in str(e).lower():
             raise HTTPException(status_code=409, detail="Esta disciplina já está associada a este curso.")
         raise HTTPException(status_code=400, detail=str(e))
+
+### ENDPOINT PARA LISTAR DISCIPLINAS DE UM CURSO ESPECÍFICO ###
+@router.get("/lista_disciplina/{id_curso}", response_model=List[Disciplina])
+def get_disciplinas_by_curso(id_curso: uuid.UUID):
+    try:
+        response = supabase.table("cursodisciplina").select(
+            "disciplina!cursodisciplina_id_disciplina_fkey(*)"
+        ).eq(
+            "id_curso", str(id_curso)
+        ).execute()
+
+        if not response.data:
+            return []
+
+
+        disciplinas_list = [item['disciplina'] for item in response.data]
+
+        return disciplinas_list
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Um erro inesperado ocorreu: {str(e)}")
 
 ### ENDPOINT PARA DELETAR AS ASSOCIAÇOES ###
 @router.delete("/detele/{id_curso}/{id_disciplina}", status_code=status.HTTP_204_NO_CONTENT)

@@ -19,6 +19,9 @@ def create_aviso(aviso_data: AvisoCreate):
 
         aviso_payload['data'] = aviso_payload['data'].isoformat()
 
+        if 'id_disciplina' in aviso_payload and aviso_payload['id_disciplina'] is not None:
+            aviso_payload['id_disciplina'] = str(aviso_payload['id_disciplina'])
+
         if 'id_professor' in aviso_payload and aviso_payload['id_professor'] is not None:
             aviso_payload['id_professor'] = str(aviso_payload['id_professor'])
 

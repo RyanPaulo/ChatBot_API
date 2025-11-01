@@ -24,6 +24,8 @@ def user_login(credentials: UserLoginSchema):
 
         user_metadata = user_data_response.user.user_metadata
         user_name = user_metadata.get("name", None)
+        user_role = user_metadata.get("role", "anonimo")
+
 
         # Se o login for bem-sucedido, o Supabase retorna os dados da sessão
         return {
@@ -32,7 +34,8 @@ def user_login(credentials: UserLoginSchema):
             "user": {
                 "id": response.user.id,
                 "email": response.user.email,
-                "name": user_name
+                "name": user_name,
+                "role": user_role
             }
         }
 
