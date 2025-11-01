@@ -1,3 +1,6 @@
+
+from typing import List, Optional
+from datetime import date, time
 from fastapi import APIRouter, HTTPException, status
 from ..supabase_client import supabase
 from ..schemas.sch_avaliacao import AvaliacaoCreate, Avaliacao, AvaliacaoUpdate
@@ -15,34 +18,29 @@ router = APIRouter(
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=Avaliacao)
 def crete_avaliacao(avaliacao_data: AvaliacaoCreate):
     try:
-        avaliacao_payload = avaliacao_data.model_dump()
+        # Converte os dados do Pydantic para um dicionário
+        payload = avaliacao_data.model_dump()
 
-        # Converter a data para o padrao json
-        avaliacao_payload['data'] = avaliacao_payload['data'].isoformat()
-
-        # Convertendo os id em strings para que garata compartibilidade
-        avaliacao_payload['id_disciplina'] = str(avaliacao_payload['id_disciplina'])
-        avaliacao_payload['id_coordenador'] = str(avaliacao_payload['id_coordenador'])
-
-        response = supabase.table("avaliacao").insert(avaliacao_payload).execute()
+        # Converte campos de data/hora/uuid para string, se existirem
+        for key, value in payload.items():
+            if isinstance(value, (date, time, uuid.UUID)):
+                payload[key] = str(value)
+        
+        response = supabase.table("avaliacao").insert(payload).execute()
 
         if not response.data:
-            raise HTTPException(status_code=500, detail="Erro ao cadatrar a avaliacao")
+            raise HTTPException(status_code=500, detail="Erro ao criar a avaliação.")
 
         return response.data[0]
 
     except Exception as e:
-        if "violates foreig key constraint" in str(e).lower():
-            if "fk_disciplina" in str(e).lower():
-                raise HTTPException(status_code=404,detail=f"A displina com id '{avaliacao_data.id_disciplina}' não foi encotrado")
-            if "fk_coordenador" in str(e).lower():
-                raise HTTPException(status_code=404,detail=f"A coordenador com id '{avaliacao_data.id_coordenador}' não foi encotrado")
-
+        if "violates foreign key constraint" in str(e).lower():
+            raise HTTPException(status_code=404, detail="A disciplina ou o aplicador especificado não foi encontrado.")
         raise HTTPException(status_code=400, detail=str(e))
 
 ### ENDPOINT PARA CONSULTAR AS AVALIAÇÃO USANDO O ID ###
-@router.get("/get_avaliacao/{avalicao_id}", response_model=Avaliacao)
-def get_avaliacao(avaliacao_id: uuid.UUID):
+# @router.get("/get_avaliacao/{avalicao_id}", response_model=Avaliacao)
+# def get_avaliacao(avaliacao_id: uuid.UUID):
     try:
         response = supabase.table("avaliacao").select("*").eq('id_avaliacao', str(avaliacao_id)).single().execute()
 
@@ -53,45 +51,72 @@ def get_avaliacao(avaliacao_id: uuid.UUID):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-### ENDPOIN PARA ATUALIZAR UMA AVALIAÇÃO ###
-@router.put("/update/{avaliacao_id}", response_model=Avaliacao)
-def update_avaliacao(avaliacao_id: uuid.UUID, avaliacao_data: AvaliacaoUpdate):
+### ENDPOINT PARA CONSULTAR AS AVALIAÇÕES POR DISCIPLINA ###
+@router.get("/disciplina/{disciplina_id}", response_model=List[Avaliacao])
+def get_avaliacoes_por_disciplina(disciplina_id: uuid.UUID):
     try:
-        update_payload = avaliacao_data.model_dump(exclude_unset=True)
-
-        # Se for necessario atualizar a data, converte a data para o padrao json
-        if 'data' in update_payload:
-            update_payload['data'] = update_payload['data'].isoformat()
-
-        if not update_payload:
-            raise HTTPException(status_code=400, detail="Nenhum dado fornecido para atualização.")
-
-        if 'id_coordenador' in update_payload:
-            update_payload['id_coordenador'] = str(update_payload['id_coordenador'])
-
-        response = supabase.table('avaliacao').update(update_payload).eq('id_avaliacao', str(avaliacao_id)).execute()
-
-        if not response.data:
-            raise HTTPException(status_code=404, datail="Avaliação não encontrada para atualização.")
-
-        return response.data[0]
+        response = supabase.table("avaliacao").select("*").eq("id_disciplina", str(disciplina_id)).execute()
+        
+        # Retorna a lista de dados (pode ser uma lista vazia, o que é um resultado válido)
+        return response.data
     except Exception as e:
-        if "violates foreign key constraint" in str(e).lower() and "fk_coordenador" in str(e).lower():
-            raise HTTPException(status_code=404, detail=f"O novo coordenador com id '{avaliacao_data.id_coordenador}' não foi encontrado.")
-
         raise HTTPException(status_code=500, detail=str(e))
 
-### ENDPOIN PARA DELETAR UMA AVALIACAO ###
-@router.delete("/detele/{avaliacao_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_avaliacao(avaliacao_id: uuid.UUID):
+### ENDPOINT PARA ATUALIZAR UMA AVALIAÇÃO POR TIPO E DISCIPLINA ###
+@router.put("/disciplina/{disciplina_id}/tipo/{tipo_avaliacao}", response_model=Avaliacao)
+def update_avaliacao_por_tipo_e_disciplina(
+    disciplina_id: uuid.UUID, 
+    tipo_avaliacao: str, # Recebemos como string simples da URL
+    avaliacao_data: AvaliacaoUpdate
+):
     try:
+        # Pega apenas os campos que foram enviados na requisição
+        payload = avaliacao_data.model_dump(exclude_unset=True)
 
-        response = supabase.table('avaliacao').delete().eq('id_avaliacao', str(avaliacao_id)).execute()
+        if not payload:
+            raise HTTPException(status_code=400, detail="Nenhum dado fornecido para atualização.")
+
+        # Converte campos de data/hora/uuid para string, se existirem
+        for key, value in payload.items():
+            if isinstance(value, (date, time, uuid.UUID)):
+                payload[key] = str(value)
+
+        # A "mágica" está aqui: encadeamos dois .eq() para criar um "WHERE ... AND ..."
+        response = supabase.table("avaliacao").update(payload).eq(
+            "id_disciplina", str(disciplina_id)
+        ).eq(
+            "tipo_avaliacao", tipo_avaliacao.upper() # Usamos .upper() para garantir consistência (ex: 'np1' vira 'NP1')
+        ).execute()
 
         if not response.data:
-            raise HTTPException(status_code=404, detail="Avaliação não encontrada para deletar")
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Nenhuma avaliação do tipo '{tipo_avaliacao.upper()}' encontrada para a disciplina especificada."
+            )
 
-        return
+        # O Supabase retorna uma lista de registros atualizados, pegamos o primeiro.
+        return response.data[0]
+        
+    except Exception as e:
+        # Re-lança a exceção se já for uma HTTPException
+        if isinstance(e, HTTPException):
+            raise e
+        # Captura outros erros genéricos
+        raise HTTPException(status_code=500, detail=str(e))
+
+### ENDPOIN PARA ATUALIZAR UMA AVALIAÇÃO ###
+@router.delete("/{avaliacao_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_avaliacao(avaliacao_id: uuid.UUID):
+    """
+    Deleta uma avaliação específica.
+    """
+    try:
+        response = supabase.table("avaliacao").delete().eq("id_avaliacao", str(avaliacao_id)).execute()
+
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Avaliação não encontrada.")
+
+        return # Retorna uma resposta vazia com status 204
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
