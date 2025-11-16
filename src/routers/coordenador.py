@@ -1,7 +1,9 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from typing import List
+import re
 from src.supabase_client import supabase
 from src.schemas.sch_coordenador import CoordenadorCreate, Coordenador, CoordenadorUpdate
+from ..dependencies import require_admin_or_coordenador, require_all
 
 # --- ROUTER COORDENADOR ---
 
@@ -12,44 +14,80 @@ router = APIRouter(
 
 ### ENDPOINT PARA CADASTRAR COORDENADOR ###
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=Coordenador)
-def create_coordenador(coordenador_data: CoordenadorCreate):
+def create_coordenador(coordenador_data: CoordenadorCreate):#, current_user: dict = Depends(require_admin_or_coordenador)
     try:
         auth_response = supabase.auth.sign_up({
             "email": coordenador_data.email_institucional,
             "password": coordenador_data.password,
             "options": {
                 "data": {
-                    "name": f"{coordenador_data.nome_coordenador} {coordenador_data.sobrenome_coordenador}"
+                    "name": f"{coordenador_data.nome_coordenador} {coordenador_data.sobrenome_coordenador}",
+                    "role": "coordenador"
                 }
             }
         })
         user_id = auth_response.user.id
 
-
-        coordenador_profile_data = coordenador_data.model_dump(exclude={"password"})
+        # Preparar os dados do coordenador para inserir na tabela "Coordenador"
+        coordenador_profile_data = coordenador_data.model_dump(exclude={"password", "curso_nomes"})
         coordenador_profile_data["id"] = user_id
 
         # Para converter os time
         coordenador_profile_data['atendimento_hora_inicio'] = coordenador_profile_data['atendimento_hora_inicio'].isoformat()
         coordenador_profile_data['atendimento_hora_fim'] = coordenador_profile_data['atendimento_hora_fim'].isoformat()
 
+        # Inserir o perfil do Coordenador na tabela "Coordenador"
         db_response = supabase.table("coordenador").insert(coordenador_profile_data).execute()
 
-
+        # Verificar se o processo foi bem sucedido
         if not db_response.data:
             raise HTTPException(status_code=500, detail="Erro ao salvar o perfil do coordenador")
 
-        return db_response.data[0]
+        if coordenador_data.curso_nomes:
+            curso_ids_response = supabase.table("curso").select("id_curso", "nome_curso").in_("nome_curso", coordenador_data.curso_nomes).execute()
+
+            curso_encontrado = curso_ids_response.data
+            if len(curso_encontrado) != len(coordenador_data.curso_nomes):
+                # Identificar qual curso não foi encontrado para um erro mais claro
+                nomes_encontrado = {d['nome_curso'] for d in curso_encontrado}
+                missing_names = [name for name in coordenador_data.curso_nomes if name not in nomes_encontrado]
+                raise HTTPException(status_code=404,
+                                    detail=f"As seguintes curso não foi encontrado: {', '.join(missing_names)}")
+
+                # Preparar os registros para a tabela associativa
+            associations_to_create = [
+                {"id_coordenador": user_id, "id_curso": curso['id_curso']}
+                for curso in curso_encontrado
+            ]
+
+            # Inserir todas as associações de uma vez
+            if associations_to_create:
+                supabase.table("coordenadorcurso").insert(associations_to_create).execute()
+
+        created_coordenador_dict = db_response.data[0]
+        
+        coordenador_obj = Coordenador.model_validate(created_coordenador_dict)
+        return coordenador_obj
+
 
     except Exception as e:
+        if user_id:
+            try:
+                auth_delete_response = supabase.auth.admin.delete_user(user_id)
+            except Exception as admin_exc:
+                print(f"ERRO CRITICO: Falha ao fazer rollback do usuario {user_id}. Erro: {admin_exc}")
+        if "User already registered" in str(e):
+            raise HTTPException(status_code=409, detail="Este e-mail ja esta cadastrados.")
+
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(status_code=400, detail=str(e))
 
 
-    # **** ENDPOINT PARA ATUALIZAR CADASTRO DO COORDENADOR ****
 
 ### ENDPOINT PARA LISTAR TODOS OS ALUNOS CADASTRADOS NO BD ###
 @router.get("/get_list_coordenador/", response_model=List[Coordenador])
-def get_all_aluno():
+def get_all_aluno(): #current_user: dict = Depends(require_all)
     try:
         response = supabase.table("coordenador").select("*").execute()
         return response.data
@@ -57,11 +95,26 @@ def get_all_aluno():
         raise HTTPException(status_code=500, detail=str(e))
 
 ### ENDPOINT PARA ATUALIZAR COORDENADOR ###
-@router.put("/updade/{id}", response_model=Coordenador)
-def update_coordenador(id: str, coordenador_update_data: CoordenadorUpdate):
+@router.put("/update/{id}", response_model=Coordenador)
+def update_coordenador(id: str, coordenador_update_data: CoordenadorUpdate): #, current_user: dict = Depends(require_admin_or_coordenador)
     try:
-
-        update_payload = coordenador_update_data.model_dump(exclude_unset=True)
+        # Verificar se o id é um UUID (tem hífens e formato UUID) ou id_funcional
+        uuid_pattern = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.IGNORECASE)
+        
+        if uuid_pattern.match(id):
+            # Se for UUID, busca diretamente pelo id
+            coordenador_response = supabase.table('coordenador').select("id").eq('id', id).execute()
+        else:
+            # Se não for UUID, busca pelo id_funcional
+            coordenador_response = supabase.table('coordenador').select("id").eq('id_funcional', id).execute()
+        
+        if not coordenador_response.data:
+            raise HTTPException(status_code=404, detail="Coordenador não encontrado para atualização.")
+        
+        coordenador_id = coordenador_response.data[0]['id']
+        
+        # Preparar o payload excluindo curso_nomes (que não vai na tabela coordenador)
+        update_payload = coordenador_update_data.model_dump(exclude_unset=True, exclude={"curso_nomes"})
 
         if 'atendimento_hora_inicio' in update_payload:
             update_payload['atendimento_hora_inicio'] = update_payload['atendimento_hora_inicio'].isoformat()
@@ -69,40 +122,79 @@ def update_coordenador(id: str, coordenador_update_data: CoordenadorUpdate):
         if 'atendimento_hora_fim' in update_payload:
             update_payload['atendimento_hora_fim'] = update_payload['atendimento_hora_fim'].isoformat()
 
+        if not update_payload and not coordenador_update_data.curso_nomes:
+            raise HTTPException(status_code=400, detail="Nenhum dado fornecido para atualização.")
 
-        if not update_payload:
-            raise HTTPException(status_code=400, detail="Nenhum dado fornecido para atualiuzação.")
+        # Atualizar os dados do coordenador (se houver algo para atualizar)
+        if update_payload:
+            # Usar coordenador_id (UUID) para atualizar, que já foi obtido acima
+            response = supabase.table('coordenador').update(update_payload).eq('id', coordenador_id).execute()
 
-        response = supabase.table('coordenador').update(update_payload).eq('id_funcional', id).execute()
+            if not response.data:
+                raise HTTPException(status_code=404, detail="Coordenador não encontrado para atualização.")
+        else:
+            # Se não houver dados para atualizar na tabela principal, buscar o coordenador atual
+            response = supabase.table('coordenador').select("*").eq('id', coordenador_id).execute()
 
-        if not response.data:
-            raise HTTPException(status_code=404, detail="Coordenador não encontrado para atualização")
+        # Atualizar associações de cursos se curso_nomes foi fornecido
+        if coordenador_update_data.curso_nomes is not None:
+            # Deletar associações antigas
+            supabase.table("coordenadorcurso").delete().eq("id_coordenador", str(coordenador_id)).execute()
+            
+            # Buscar os IDs dos cursos pelo nome
+            curso_ids_response = supabase.table("curso").select("id_curso", "nome_curso").in_("nome_curso", coordenador_update_data.curso_nomes).execute()
+            
+            curso_encontrado = curso_ids_response.data
+            if len(curso_encontrado) != len(coordenador_update_data.curso_nomes):
+                # Identificar qual curso não foi encontrado
+                nomes_encontrado = {c['nome_curso'] for c in curso_encontrado}
+                missing_names = [name for name in coordenador_update_data.curso_nomes if name not in nomes_encontrado]
+                raise HTTPException(status_code=404,
+                                    detail=f"As seguintes cursos não foram encontrados: {', '.join(missing_names)}")
+            
+            # Criar novas associações
+            if curso_encontrado:
+                associations_to_create = [
+                    {"id_coordenador": coordenador_id, "id_curso": curso['id_curso']}
+                    for curso in curso_encontrado
+                ]
+                supabase.table("coordenadorcurso").insert(associations_to_create).execute()
 
         return response.data[0]
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(status_code=500, detail=str(e))
 
-### ENDPOINR PARA DELETAR COORDENADOR ###
+### ENDPOINT PARA DELETAR COORDENADOR ###
 @router.delete("/delete/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_coordenador(id: str):
+def delete_coordenador(id: str, current_user: dict = Depends(require_admin_or_coordenador)):
     try:
         response = supabase.table('coordenador').select("id").eq('id_funcional', id).execute()
 
         if not response.data:
-            raise HTTPException(status_code=404, detail="Coordenador não encontrado para deletar")
+            raise HTTPException(status_code=404, detail="Coordenador não encontrado para deletar.")
 
+        coordenador_id = response.data[0]['id']
 
-        coordeandor_id = response.data[0]['id']
+        # Deletar avisos relacionados ao coordenador primeiro (para evitar violação de constraint)
+        supabase.table("aviso").delete().eq("id_coordenador", str(coordenador_id)).execute()
 
-        delete_response = supabase.table('coordenador').delete().eq('id', coordeandor_id).execute()
+        # Deletar associações na tabela coordenadorcurso
+        supabase.table("coordenadorcurso").delete().eq("id_coordenador", str(coordenador_id)).execute()
+
+        # Deletar o perfil do coordenador
+        delete_response = supabase.table('coordenador').delete().eq('id', coordenador_id).execute()
 
         if not delete_response.data:
-            raise HTTPException(status_code=500, detail="Falha ao deletar o perfil do aluno. A operação foi abortada.")
+            raise HTTPException(status_code=500, detail="Falha ao deletar o perfil do coordenador. A operação foi abortada.")
 
-        auth_delete_response = supabase.auth.admin.delete_user(coordeandor_id)
-        return
-
+        # Deletar o usuário do Auth
+        auth_delete_response = supabase.auth.admin.delete_user(coordenador_id)
+        return None
 
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         raise HTTPException(status_code=500, detail=str(e))
 

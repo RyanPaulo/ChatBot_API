@@ -11,7 +11,7 @@ class CoordenadorBase(BaseModel):
     sobrenome_coordenador: str
     email_institucional: EmailStr
     departamento: str
-
+    curso_nomes: Optional[List[str]] = Field(default_factory=list)
     dias_atendimento: Optional[List[str]] = Field(default_factory=list)
     atendimento_hora_inicio: Optional[time] = Field(None, example="00:00")
     atendimento_hora_fim: Optional[time] = Field(None, example="00:00")
@@ -30,7 +30,7 @@ class CoordenadorUpdate(BaseModel):
     sobrenome_coordenador: Optional[str] = None
     email_institucional: Optional[EmailStr] = None
     departamento: Optional[str] = None
-
+    curso_nomes: Optional[List[str]] = Field(default_factory=list)
     dias_atendimento: Optional[List[str]] = Field(default_factory=list)
     atendimento_hora_inicio: Optional[time] = Field(None, example="00:00")
     atendimento_hora_fim: Optional[time] = Field(None, example="00:00")

@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from src.supabase_client import supabase
 from ..schemas.sch_professor import ProfessorCreate, Professor, ProfessorUpdate
+from ..dependencies import require_admin_or_coordenador, require_all, require_admin_or_coordenador_or_professor
 from typing import List
 
 # --- ROUTER PROFESSORES ---
@@ -12,7 +13,7 @@ router = APIRouter(
 
 ### ENDPOINT PARA CADASTRAR PROFESSORES ###
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=Professor)
-def create_professor(professor_data: ProfessorCreate):
+def create_professor(professor_data: ProfessorCreate): #, current_user: dict = Depends(require_admin_or_coordenador)
     try:
         # Para gravar email e senha dos professores no auth do supabase
         auth_response = supabase.auth.sign_up({
@@ -21,7 +22,7 @@ def create_professor(professor_data: ProfessorCreate):
             "options": {
                 "data": {
                     "name": f"{professor_data.nome_professor} {professor_data.sobrenome_professor}",
-                    "role": "admin"
+                    "role": "professor"
                 }
             }
         })
@@ -86,7 +87,7 @@ def create_professor(professor_data: ProfessorCreate):
 
 ### ENDPOINT PARA LISTAR TODOS OS PROFESSORES CADASTRADOS NO BD ###
 @router.get("/lista_professores/", response_model=List[Professor])
-def get_all_professores():
+def get_all_professores(): #current_user: dict = Depends(require_all)
     try:
         response = supabase.table("professor").select("*").execute()
         return response.data
@@ -95,7 +96,7 @@ def get_all_professores():
 
 ### ENDPOINT PARA ATUALIZAR CADASTRO DO PROFESSORES ###
 @router.put("/update/{id}", response_model=Professor)
-def update_professor(id: str, professor_update_data: ProfessorUpdate):
+def update_professor(id: str, professor_update_data: ProfessorUpdate):# , current_user: dict = Depends(require_admin_or_coordenador_or_professor)
     try:
 
         update_payload = professor_update_data.model_dump(exclude_unset=True)
@@ -120,7 +121,7 @@ def update_professor(id: str, professor_update_data: ProfessorUpdate):
 
 ### ENDPOINR PARA DELETAR PROFESSORES ###
 @router.delete("/detele/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_professor(id: str):
+def delete_professor(id: str, current_user: dict = Depends(require_admin_or_coordenador)):
     try:
         response = supabase.table("professor").select("id").eq("id_funcional", id).execute()
 

@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from typing import List
 from src.supabase_client import supabase
 from src.schemas.sch_aluno import AlunoCreate, Aluno, AlunoUpdate
+from ..dependencies import require_admin_or_coordenador, require_all, require_admin_or_coordenador_or_professor
 import uuid
 
 # --- ROUTER ALUNOS ---
@@ -13,7 +14,7 @@ router = APIRouter(
 
 ### ENDPOINT PARA CASDATRAR ALUNO ###
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=Aluno)
-def create_aluno(aluno_data: AlunoCreate):
+def create_aluno(aluno_data: AlunoCreate): #, current_user: dict = Depends(require_admin_or_coordenador
     try:
         # Criar o usuario no Supabase Auth
         auth_response = supabase.auth.sign_up({
@@ -22,7 +23,7 @@ def create_aluno(aluno_data: AlunoCreate):
             "options": {
                 "data": {
                     "name": f"{aluno_data.nome_aluno} {aluno_data.sobrenome_aluno}",
-                    "role": "aluno"
+                    "role": "admin"
                 }
             }
         })
@@ -66,7 +67,7 @@ def create_aluno(aluno_data: AlunoCreate):
 
 ### ENDPOINT PARA BUSCAR UM ALUNO PELO EMAIL ###
 @router.get("/get_email/{email}", response_model=Aluno)
-def get_aluno_by_email(email: str):
+def get_aluno_by_email(email: str): # , current_user: dict = Depends(require_all)
     try:
         # Realiza a consulta na tabela "aluno" filtrando pelo email_institucional
         response = supabase.table("aluno").select("*").eq("email_institucional", email).single().execute()
@@ -92,7 +93,7 @@ def get_aluno_by_email(email: str):
 
 ### ENDPOINT PARA LISTAR TODOS OS ALUNOS CADASTRADOS NO BD ###
 @router.get("/get_list_alunos/", response_model=List[Aluno])
-def get_all_aluno():
+def get_all_aluno(): # current_user: dict = Depends(require_all)
     try:
         response = supabase.table("aluno").select("*").execute()
         return response.data
@@ -102,7 +103,7 @@ def get_all_aluno():
 ### ENDPOINT PARA ATUALIZAR UM ALUNO ###
 # Utilizando o RA do aluno como referencia o RA do aluno
 @router.put("/update/{ra}", response_model=Aluno)
-def update_aluno(ra: str, aluno_update_data: AlunoUpdate):
+def update_aluno(ra: str, aluno_update_data: AlunoUpdate): #, current_user: dict = Depends(require_admin_or_coordenador_or_professor)
     try:
         # Cria um dicionario apensa com os dados que foram enviados (nâo none)
         update_payload = aluno_update_data.model_dump(exclude_unset=True)
@@ -150,7 +151,7 @@ def update_aluno(ra: str, aluno_update_data: AlunoUpdate):
 
 ### ENDPOINT PARA DELETAR UM ALUNO ###
 @router.delete("/delete/{ra}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_aluno(ra: str):
+def delete_aluno(ra: str, current_user: dict = Depends(require_admin_or_coordenador)):
     # ** Lembrar que essa função não remove o usuário do sistema de autenticação do Supabase.
     try:
         # Executa o delete no Supabase | tabela = aluno | indentificado do aluno = matricula_ra

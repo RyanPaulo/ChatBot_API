@@ -1,0 +1,66 @@
+++ Resumo Atual da API do Chatbot Acadêmico
+
+Este documento descreve os roteadores disponíveis na API FastAPI do chatbot acadêmico e quais recursos eles manipulam no banco de dados (Supabase). Cada tópico resume endpoints principais e operações realizadas.
+
+## auth (`/docs#/%5BAutentica%C3%A7%C3%A3o%5D`)
+- Autenticação de usuários por e-mail e senha via Supabase Auth.
+- Retorna token de acesso e metadados (nome, papel) armazenados na autenticação.
+
+## alunos (`/docs#/%5BAlunos%5D`)
+- Criação de alunos: registra credenciais no Supabase Auth e dados na tabela `aluno`.
+- Geração automática das matrículas na tabela associativa `alunodisciplina` com base no curso.
+- Consulta por e-mail, listagem completa, atualização por RA (sincronizando curso/disciplinas) e exclusão (inclui remoção no Auth).
+
+## professores (`/docs#/%5BProfessores%5D`)
+- Cadastro de professores com criação de usuário Auth e gravação na tabela `professor`.
+- Associação entre professores e disciplinas via tabela `professordisciplina`.
+- Listagem, atualização por `id_funcional` e exclusão (com limpeza no Auth).
+
+## coordenador (`/docs#/%5BCoordenador%5D`)
+- Cadastro de coordenadores com integração Supabase Auth e persistência na tabela `coordenador`.
+- Listagem geral, atualização por `id_funcional` e deleção com remoção no Auth.
+
+## curso (`/docs#/%5BCurso%5D`)
+- CRUD da tabela `curso` incluindo campos estruturados (modalidade) armazenados como JSON.
+- Recupera curso por `id_curso` e converte listas JSON para objetos Python na resposta.
+
+## curso-disciplina (`/docs#/%5BAssocia%C3%A7%C3%A3o%20Curso-Disciplina%5D`)
+- Associa disciplinas a cursos gravando na tabela `cursodisciplina`.
+- Ao vincular, matricula todos os alunos do curso na disciplina (tabela `alunodisciplina`).
+- Listagem das disciplinas de um curso e remoção da associação (limpando matrículas relacionadas).
+
+## disciplinas (`/docs#/%5BDisciplina%5D`)
+- Cadastro de disciplinas na tabela `disciplina`.
+- Consulta detalhada por ID unindo professores (`professordisciplina` + `professor`) e cronograma.
+- Recupera ementa, lista geral, consulta cronogramas por nome, atualização e exclusão.
+
+## avaliacao (`/docs#/%5BAvalia%C3%A7%C3%A3o%5D`)
+- Criação de avaliações na tabela `avaliacao` com controle de tipos (NP1, NP2, SUB, EXAME).
+- Listagem de avaliações por disciplina, atualização por tipo e disciplina, e remoção por `id_avaliacao`.
+- (Endpoint individual por ID precisa de correção; bloco comentado permanece no arquivo.)
+
+## cronograma (`/docs#/%5Bcronograma%5D`)
+- Cadastro e atualização da agenda de aulas na tabela `cronograma`, com conversão de datas/horas.
+- Consulta por `id_cronograma`, busca por disciplina e exclusão.
+
+## aviso (`/docs#/%5BAviso%5D`)
+- Registra avisos institucionais na tabela `aviso`, vinculados a professor ou coordenador (exclusivamente).
+- Listagem geral, consulta por ID, atualização e deleção; trata referências a disciplinas, professores e coordenadores.
+
+## baseconhecimento (`/docs#/%5BBase%20de%20Conhecimento%5D`)
+- CRUD da base de conhecimento (`baseconhecimento`) usada pelo chatbot.
+- Campos de palavras-chave e visibilidade armazenados como JSON.
+- RPC `buscar_conteudo` para recuperar contextos relevantes conforme o termo do usuário.
+
+## mensagens_aluno (`/docs#/%5BMensagens%20de%20Alunos%5D`)
+- Armazena interações dos alunos na tabela `mensagemaluno`, incluindo tópicos (JSON) e timestamp.
+- Listagem completa ordenada, atualização e exclusão (usadas nos testes).
+
+## documentos (`/docs#/%5BDocumentos%5D`)
+- Recebe uploads (PDF, TXT, DOC, DOCX) e salva no diretório monitorado pelo conector Teams.
+- Não grava diretamente no banco; alimenta o pipeline de ingestão externa.
+
+## ia (`/docs#/%5BServi%C3%A7os%20de%20IA%5D`)
+- Integra com o modelo Gemini (`gemini-2.0-flash`) para gerar respostas baseadas em contexto.
+- Recebe pergunta + contexto e retorna texto gerado; usa variável de ambiente `GOOGLE_API_KEY`.
+
