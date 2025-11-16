@@ -21,5 +21,14 @@ cache.db
 .connectors/
 requirements_watcher.txt/
 requirements_gemini.txt/
-.api_gemini - Copia/
+api_gemini - Copia/
 .para_ler/
+
+# Arquivos com segredos e configurações sensíveis
+**/test_teams_connection.py
+**/*secret*.py
+**/*credentials*.py
+**/*config*.py
+*.env
+.env.local
+.env.*.local
