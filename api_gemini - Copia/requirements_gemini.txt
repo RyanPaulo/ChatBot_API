@@ -1,0 +1,12 @@
+# Dependências para o processador de IA e monitoramento de arquivos
+google-generativeai # se precisar executi separado
+python-dotenv
+watchdog
+PyMuPDF
+
+
+# Dependência para o enriquecedor de metadados e conector do Teams
+requests
+
+# Dependência para autenticação com a API da Microsoft (MSAL)
+# msal

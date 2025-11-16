@@ -1,0 +1,183 @@
+# ==============================================================================
+# SCRIPT: local_file_watcher.py
+# FUNÇÃO: Monitora uma pasta local por novos arquivos, processa o conteúdo
+#         com a IA do Google Gemini e envia o resultado para a API FastAPI.
+# AMBIENTE VIRTUAL: .venv_watcher
+# ==============================================================================
+
+import time
+import os
+import requests
+import google.generativeai as genai
+import json
+from dotenv import load_dotenv
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+
+# --- 1. CONFIGURAÇÃO INICIAL ---
+
+# Carrega as variáveis de ambiente do arquivo .env na raiz do projeto
+load_dotenv()
+
+# Define as constantes e configurações do script
+WATCH_FOLDER = os.path.join('connectors', 'teams_mock_files')
+API_FASTAPI_URL = "http://127.0.0.1:8000"  # URL API FastAPI
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+# Configura a API do Google Gemini com a chave carregada
+if GOOGLE_API_KEY:
+    genai.configure(api_key=GOOGLE_API_KEY)
+
+
+# --- 2. FUNÇÕES PRINCIPAIS ---
+
+def processar_arquivo_com_ia(conteudo_arquivo: str, nome_arquivo: str) -> dict | None:
+    """
+    Envia o conteúdo do arquivo para a API do Google Gemini para extrair informações.
+    Retorna um dicionário com os dados ou None em caso de erro.
+    """
+    if not GOOGLE_API_KEY:
+        print("   [ERRO IA] Chave da API do Google (GOOGLE_API_KEY) não foi encontrada no arquivo .env.")
+        return None
+
+    print(f"   [IA] 2. Enviando conteúdo de '{nome_arquivo}' para a API do Google Gemini...")
+
+    # Prompt: A instrução detalhada para a IA.
+    prompt_template = f"""
+    Você é um assistente de análise de documentos acadêmicos. Sua tarefa é ler o texto a seguir, extraído do arquivo '{nome_arquivo}', e retornar as seguintes informações em formato JSON:
+    1. Um resumo conciso do conteúdo principal (chave: "resumo").
+    2. Uma lista de 5 a 7 palavras-chave ou termos técnicos importantes (chave: "palavras_chave").
+    3. O sentimento geral do texto (positivo, negativo ou neutro) (chave: "sentimento").
+
+    Texto para análise:
+    ---
+    {conteudo_arquivo}
+    ---
+
+    Retorne APENAS o objeto JSON, sem nenhum texto, explicação ou marcadores de código como ```json.
+    """
+
+    try:
+        # Inicializa o modelo Gemini
+        model = genai.GenerativeModel('gemini-2.0-flash')
+
+        # Faz a chamada real para a API do Gemini
+        response = model.generate_content(prompt_template)
+
+        # Limpa a resposta para garantir que temos apenas o JSON
+        resposta_json_str = response.text.strip().replace("```json", "").replace("```", "").strip()
+
+        # Converte a string JSON em um dicionário Python
+        dados_extraidos = json.loads(resposta_json_str)
+
+        print("   [IA] 2.1. Resposta do Gemini recebida e processada com sucesso.")
+        return dados_extraidos
+
+    except Exception as e:
+        print(f"   [ERRO IA] Falha ao comunicar com a API do Gemini: {e}")
+        return None
+
+
+def salvar_na_base_conhecimento(dados_processados: dict, nome_arquivo_origem: str) -> bool:
+    """
+    Envia os dados processados pela IA para serem salvos no Supabase
+    através da nossa API FastAPI. Retorna True em caso de sucesso, False em caso de falha.
+    """
+    if not dados_processados:
+        print("   [API] 3. Nenhum dado válido da IA para salvar. Pulando etapa.")
+        return False
+
+    print(f"   [API] 3. Enviando dados de '{nome_arquivo_origem}' para a API FastAPI...")
+
+    # Monta o payload para enviar para o endpoint /baseconhecimento/
+    # As chaves aqui devem corresponder ao seu schema Pydantic na API
+    payload = {
+        "nome_arquivo_origem": nome_arquivo_origem,
+        "conteudo_processado": dados_processados.get("resumo"),
+        "palavra_chave": dados_processados.get("palavras_chave"),
+        "categoria": "banana",
+        "status": "fefefef efgef ",
+        "id_disciplina": "11a540af-7485-46a1-89cb-6779c9b8b9f4"
+    }
+
+    try:
+        # Faz a chamada POST para a API
+        response = requests.post(f"{API_FASTAPI_URL}/baseconhecimento/", json=payload)
+        response.raise_for_status()  # Lança um erro para status 4xx/5xx
+
+        print(f"   [API] 3.1. Dados salvos com sucesso no Supabase! (ID do registro: {response.json().get('id')})")
+        return True
+    except requests.exceptions.RequestException as e:
+        print(f"   [ERRO API] Falha ao conectar ou enviar dados para a API FastAPI: {e}")
+        return False
+
+
+# --- 3. CLASSE DO OBSERVADOR DE ARQUIVOS ---
+
+class NewFileHandler(FileSystemEventHandler):
+    """
+    Classe que define o que fazer quando um evento do sistema de arquivos acontece.
+    Neste caso, estamos interessados apenas no evento on_created.
+    """
+
+    def on_created(self, event):
+        # Ignora eventos de criação de diretórios
+        if event.is_directory:
+            return
+
+        time.sleep(2)
+
+        file_path = event.src_path
+        nome_arquivo = os.path.basename(file_path)
+        print(f"\n✔️  Novo arquivo detectado: {nome_arquivo}")
+
+        try:
+            # ETAPA 1: LER O ARQUIVO
+            print("   [Leitura] 1. Lendo o conteúdo do arquivo...")
+            with open(file_path, 'r', encoding='utf-8') as f:
+                conteudo = f.read()
+            print("   [Leitura] 1.1. Leitura concluída.")
+
+            # ETAPA 2: PROCESSAR COM IA
+            dados_da_ia = processar_arquivo_com_ia(conteudo, nome_arquivo)
+
+            # ETAPA 3: SALVAR NO BANCO DE DADOS
+            sucesso = salvar_na_base_conhecimento(dados_da_ia, nome_arquivo)
+
+            if sucesso:
+                print(f"✅ Processamento completo de '{nome_arquivo}'.")
+            else:
+                print(f"❌ Falha no processamento de '{nome_arquivo}'.")
+
+        except Exception as e:
+            print(f"🚨 Erro inesperado ao processar o arquivo {nome_arquivo}: {e}")
+
+
+# --- 4. PONTO DE ENTRADA DO SCRIPT ---
+
+if __name__ == "__main__":
+    # Verifica se a chave da API foi carregada antes de iniciar
+    if not GOOGLE_API_KEY:
+        print("🚨 ERRO CRÍTICO: A variável de ambiente GOOGLE_API_KEY não foi encontrada.")
+        print("   Por favor, verifique se o arquivo .env existe na raiz do projeto e contém a chave.")
+    else:
+        print("======================================================")
+        print("🤖 CONECTOR DE ARQUIVOS E IA INICIADO 🤖")
+        print(f"Monitorando a pasta: '{os.path.abspath(WATCH_FOLDER)}'")
+        print("Adicione um novo arquivo .txt para iniciar o processo.")
+        print("Pressione Ctrl+C para parar o monitoramento.")
+        print("======================================================")
+
+        # Configura e inicia o observador
+        event_handler = NewFileHandler()
+        observer = Observer()
+        observer.schedule(event_handler, WATCH_FOLDER, recursive=False)
+
+        observer.start()
+        try:
+            while True:
+                time.sleep(5)  # Verifica a cada 5 segundos
+        except KeyboardInterrupt:
+            observer.stop()
+        observer.join()
+        print("\n👋 Monitoramento encerrado. Até mais!")

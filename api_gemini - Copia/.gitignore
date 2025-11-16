@@ -1,8 +1,8 @@
 # Ambientes virtuais (os mais importantes de ignorar)
 .venv/
-.env/
-.Dockerfile/
-env.txt/
+.venv-linux/
+.venv_watcher/
+.venv_watcher02/
 
 # Pastas e arquivos do Rasa que não precisam de versionamento
 .rasa/
@@ -18,8 +18,5 @@ __pycache__/
 cache.db
 
 # Arquivos da API do gemini
-.connectors/
 requirements_watcher.txt/
 requirements_gemini.txt/
-.api_gemini - Copia/
-.para_ler/
