@@ -6,6 +6,7 @@ from ..schemas.sch_trabalho_academico import (
     TrabalhoAcademicoCreate,
     TrabalhoAcademico,
     TrabalhoAcademicoUpdate,
+    TipoTrabalhoEnum,
 )
 from ..dependencies import (
     require_admin_or_coordenador_or_professor,
@@ -31,10 +32,12 @@ def create_trabalho_academico(
     try:
         payload = trabalho_data.model_dump()
 
-        # Converte campos de data/uuid para string onde necessário
+        # Converte campos de data/uuid/enum para string onde necessário
         for key, value in payload.items():
             if isinstance(value, (date, uuid.UUID)):
                 payload[key] = str(value)
+            elif isinstance(value, TipoTrabalhoEnum):
+                payload[key] = value.value  # Converte Enum para string
 
         response = supabase.table("trabalho_academico").insert(payload).execute()
 
@@ -132,6 +135,8 @@ def update_trabalho_academico(
         for key, value in update_payload.items():
             if isinstance(value, (date, uuid.UUID)):
                 update_payload[key] = str(value)
+            elif isinstance(value, TipoTrabalhoEnum):
+                update_payload[key] = value.value  # Converte Enum para string
 
         response = (
             supabase.table("trabalho_academico")

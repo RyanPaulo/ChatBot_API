@@ -1,9 +1,11 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from typing import List
 import re
+import requests
 from src.supabase_client import supabase
 from src.schemas.sch_coordenador import CoordenadorCreate, Coordenador, CoordenadorUpdate
 from ..dependencies import require_admin_or_coordenador, require_all
+from ..config import settings
 
 # --- ROUTER COORDENADOR ---
 
@@ -14,7 +16,8 @@ router = APIRouter(
 
 ### ENDPOINT PARA CADASTRAR COORDENADOR ###
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=Coordenador)
-def create_coordenador(coordenador_data: CoordenadorCreate):#, current_user: dict = Depends(require_admin_or_coordenador)
+def create_coordenador(coordenador_data: CoordenadorCreate, current_user: dict = Depends(require_admin_or_coordenador)):
+    user_id = None
     try:
         auth_response = supabase.auth.sign_up({
             "email": coordenador_data.email_institucional,
@@ -54,7 +57,7 @@ def create_coordenador(coordenador_data: CoordenadorCreate):#, current_user: dic
                 raise HTTPException(status_code=404,
                                     detail=f"As seguintes curso não foi encontrado: {', '.join(missing_names)}")
 
-                # Preparar os registros para a tabela associativa
+            # Preparar os registros para a tabela associativa
             associations_to_create = [
                 {"id_coordenador": user_id, "id_curso": curso['id_curso']}
                 for curso in curso_encontrado
@@ -71,13 +74,23 @@ def create_coordenador(coordenador_data: CoordenadorCreate):#, current_user: dic
 
 
     except Exception as e:
+        # Se algo deu errado após a criação do usuário no Auth, tenta deletar o usuário
         if user_id:
             try:
-                auth_delete_response = supabase.auth.admin.delete_user(user_id)
+                # Usa a API REST diretamente com service key para deletar o usuário
+                delete_url = f"{settings.SUPABASE_URL}/auth/v1/admin/users/{user_id}"
+                headers = {
+                    "apikey": settings.SUPABASE_SERVICE_KEY,
+                    "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
+                    "Content-Type": "application/json"
+                }
+                requests.delete(delete_url, headers=headers)
             except Exception as admin_exc:
                 print(f"ERRO CRITICO: Falha ao fazer rollback do usuario {user_id}. Erro: {admin_exc}")
-        if "User already registered" in str(e):
-            raise HTTPException(status_code=409, detail="Este e-mail ja esta cadastrados.")
+                # Não levanta exceção aqui para não mascarar o erro original
+        
+        if "User already registered" in str(e) or "already registered" in str(e).lower():
+            raise HTTPException(status_code=409, detail="Este e-mail ja esta cadastrado.")
 
         if isinstance(e, HTTPException):
             raise e
@@ -87,7 +100,7 @@ def create_coordenador(coordenador_data: CoordenadorCreate):#, current_user: dic
 
 ### ENDPOINT PARA LISTAR TODOS OS ALUNOS CADASTRADOS NO BD ###
 @router.get("/get_list_coordenador/", response_model=List[Coordenador])
-def get_all_aluno(): #current_user: dict = Depends(require_all)
+def get_all_aluno(current_user: dict = Depends(require_all)):
     try:
         response = supabase.table("coordenador").select("*").execute()
         return response.data
@@ -96,7 +109,7 @@ def get_all_aluno(): #current_user: dict = Depends(require_all)
 
 ### ENDPOINT PARA ATUALIZAR COORDENADOR ###
 @router.put("/update/{id}", response_model=Coordenador)
-def update_coordenador(id: str, coordenador_update_data: CoordenadorUpdate): #, current_user: dict = Depends(require_admin_or_coordenador)
+def update_coordenador(id: str, coordenador_update_data: CoordenadorUpdate, current_user: dict = Depends(require_admin_or_coordenador)):
     try:
         # Verificar se o id é um UUID (tem hífens e formato UUID) ou id_funcional
         uuid_pattern = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.IGNORECASE)
@@ -189,8 +202,19 @@ def delete_coordenador(id: str, current_user: dict = Depends(require_admin_or_co
         if not delete_response.data:
             raise HTTPException(status_code=500, detail="Falha ao deletar o perfil do coordenador. A operação foi abortada.")
 
-        # Deletar o usuário do Auth
-        auth_delete_response = supabase.auth.admin.delete_user(coordenador_id)
+        # Deletar o usuário do Auth usando API REST
+        try:
+            delete_url = f"{settings.SUPABASE_URL}/auth/v1/admin/users/{coordenador_id}"
+            headers = {
+                "apikey": settings.SUPABASE_SERVICE_KEY,
+                "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
+                "Content-Type": "application/json"
+            }
+            requests.delete(delete_url, headers=headers)
+        except Exception as auth_exc:
+            print(f"AVISO: Falha ao deletar usuário do Auth: {auth_exc}")
+            # Não levanta exceção aqui para não abortar a operação
+        
         return None
 
     except Exception as e:

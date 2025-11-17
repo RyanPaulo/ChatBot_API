@@ -1,7 +1,8 @@
 from typing import List
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from ..supabase_client import supabase
 from ..schemas.sch_aviso import Aviso, AvisoCreate, AvisoUpdate
+from ..dependencies import require_admin_or_coordenador, require_aluno
 import uuid
 
 # --- ROUTER AVISO ---
@@ -13,7 +14,7 @@ router = APIRouter(
 
 ### ENDPOINT PARA REGISTRAR AVISO ###
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=Aviso)
-def create_aviso(aviso_data: AvisoCreate):
+def create_aviso(aviso_data: AvisoCreate, current_user: dict = Depends(require_admin_or_coordenador)):
     try:
         aviso_payload = aviso_data.model_dump(exclude_unset=True)
 
@@ -58,7 +59,7 @@ def get_aviso(aviso_id: uuid.UUID):
 
 ### ENDPOINT PARA LISTAR TODOS OS AVISOS ###
 @router.get("/get_lista_aviso/", response_model=List[Aviso])
-def get_all_avisos():
+def get_all_avisos(current_user: dict = Depends(require_aluno)):
     try:
         response = supabase.table("aviso").select("*").execute()
         return response.data

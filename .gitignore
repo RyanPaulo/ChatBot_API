@@ -32,3 +32,41 @@ api_gemini - Copia/
 *.env
 .env.local
 .env.*.local
+
+# Arquivos de documentação gerados automaticamente
+CHATBOT_AUTH_EXAMPLES.md
+*.md
+!README.md
+
+# Arquivos temporários e de sistema
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Arquivos de IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Arquivos de backup
+*.bak
+*.backup
+*_backup.*
+
+# Arquivos do Office (podem conter informações sensíveis)
+*.docx
+*.doc
+*.xlsx
+*.xls
+*.pptx
+*.ppt
+
+# Arquivos de teste e desenvolvimento
+test_*.py
+*_test.py
+*_tests.py

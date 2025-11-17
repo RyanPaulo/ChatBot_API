@@ -2,7 +2,9 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from src.supabase_client import supabase
 from ..schemas.sch_professor import ProfessorCreate, Professor, ProfessorUpdate
 from ..dependencies import require_admin_or_coordenador, require_all, require_admin_or_coordenador_or_professor
+from ..config import settings
 from typing import List
+import requests
 
 # --- ROUTER PROFESSORES ---
 
@@ -13,7 +15,8 @@ router = APIRouter(
 
 ### ENDPOINT PARA CADASTRAR PROFESSORES ###
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=Professor)
-def create_professor(professor_data: ProfessorCreate): #, current_user: dict = Depends(require_admin_or_coordenador)
+def create_professor(professor_data: ProfessorCreate, current_user: dict = Depends(require_admin_or_coordenador)):
+    user_id = None
     try:
         # Para gravar email e senha dos professores no auth do supabase
         auth_response = supabase.auth.sign_up({
@@ -33,18 +36,19 @@ def create_professor(professor_data: ProfessorCreate): #, current_user: dict = D
         professor_profile_data["id"] = user_id
 
         # Para converter os time
-        professor_profile_data['atendimento_hora_inicio'] = professor_profile_data['atendimento_hora_inicio'].isoformat()
-        professor_profile_data['atendimento_hora_fim'] = professor_profile_data['atendimento_hora_fim'].isoformat()
+        if professor_profile_data.get('atendimento_hora_inicio'):
+            professor_profile_data['atendimento_hora_inicio'] = professor_profile_data['atendimento_hora_inicio'].isoformat()
+        if professor_profile_data.get('atendimento_hora_fim'):
+            professor_profile_data['atendimento_hora_fim'] = professor_profile_data['atendimento_hora_fim'].isoformat()
 
         #Inserir o perfil do Professor na tabela "Professor"
         db_response = supabase.table("professor").insert(professor_profile_data).execute()
 
         # Verificar se o processo foi bem sucedido
         if not db_response.data:
-            raise  HTTPException(status_code=500, detail="Erro ao salvar o perfil do professor")
+            raise HTTPException(status_code=500, detail="Erro ao salvar o perfil do professor")
 
-        # created_professor =  db_response.data[0]
-
+        # Associar disciplinas ao professor
         if professor_data.disciplina_nomes:
             disciplinas_ids_response = supabase.table("disciplina").select("id_disciplina", "nome_disciplina").in_("nome_disciplina", professor_data.disciplina_nomes).execute()
 
@@ -52,17 +56,17 @@ def create_professor(professor_data: ProfessorCreate): #, current_user: dict = D
             if len(disciplinas_encontrada) != len(professor_data.disciplina_nomes):
                 # Identificar qual disciplina não foi encontrada para um erro mais claro
                 nomes_encontrado = {d['nome_disciplina'] for d in disciplinas_encontrada}
-                missing_names = [name for name in professor_data.disciplinas_nomes if name not in nomes_encontrado]
+                missing_names = [name for name in professor_data.disciplina_nomes if name not in nomes_encontrado]
                 raise HTTPException(status_code=404,
                                     detail=f"As seguintes disciplinas não foram encontradas: {', '.join(missing_names)}")
 
-                # Preparar os registros para a tabela associativa
+            # Preparar os registros para a tabela associativa
             associations_to_create = [
                 {"id_professor": user_id, "id_disciplina": disciplina['id_disciplina']}
                 for disciplina in disciplinas_encontrada
             ]
 
-            # 3c. Inserir todas as associações de uma vez
+            # Inserir todas as associações de uma vez
             if associations_to_create:
                 supabase.table("professordisciplina").insert(associations_to_create).execute()
 
@@ -72,22 +76,31 @@ def create_professor(professor_data: ProfessorCreate): #, current_user: dict = D
         return professor_obj
 
     except Exception as e:
-        #Se algo deu errado após a criação do usuário no Auth, deleta o usuário.
+        # Se algo deu errado após a criação do usuário no Auth, tenta deletar o usuário
         if user_id:
             try:
-                auth_delete_response = supabase.auth.admin.delete_user(user_id)
+                # Usa a API REST diretamente com service key para deletar o usuário
+                delete_url = f"{settings.SUPABASE_URL}/auth/v1/admin/users/{user_id}"
+                headers = {
+                    "apikey": settings.SUPABASE_SERVICE_KEY,
+                    "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
+                    "Content-Type": "application/json"
+                }
+                requests.delete(delete_url, headers=headers)
             except Exception as admin_exc:
                 print(f"ERRO CRITICO: Falha ao fazer rollback do usuario {user_id}. Erro: {admin_exc}")
-        if "User already registered" in str(e):
-            raise HTTPException(status_code=409, detail="Este e-mail ja esta cadastrados.")
+                # Não levanta exceção aqui para não mascarar o erro original
+        
+        if "User already registered" in str(e) or "already registered" in str(e).lower():
+            raise HTTPException(status_code=409, detail="Este e-mail ja esta cadastrado.")
 
         if isinstance(e, HTTPException):
             raise e
-        raise  HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
 ### ENDPOINT PARA LISTAR TODOS OS PROFESSORES CADASTRADOS NO BD ###
 @router.get("/lista_professores/", response_model=List[Professor])
-def get_all_professores(): #current_user: dict = Depends(require_all)
+def get_all_professores(current_user: dict = Depends(require_all)):
     try:
         response = supabase.table("professor").select("*").execute()
         return response.data
@@ -96,7 +109,7 @@ def get_all_professores(): #current_user: dict = Depends(require_all)
 
 ### ENDPOINT PARA ATUALIZAR CADASTRO DO PROFESSORES ###
 @router.put("/update/{id}", response_model=Professor)
-def update_professor(id: str, professor_update_data: ProfessorUpdate):# , current_user: dict = Depends(require_admin_or_coordenador_or_professor)
+def update_professor(id: str, professor_update_data: ProfessorUpdate, current_user: dict = Depends(require_admin_or_coordenador_or_professor)):
     try:
 
         update_payload = professor_update_data.model_dump(exclude_unset=True)
@@ -135,8 +148,20 @@ def delete_professor(id: str, current_user: dict = Depends(require_admin_or_coor
         if not delete_response.data:
             raise HTTPException(status_code=500, detail="Falha ao deletar o perfil do professor. A operação foi abortada.")
 
-        auth_delete_response = supabase.auth.admin.delete_user(professor_id)
-        return
+        # Deletar o usuário do Auth usando API REST
+        try:
+            delete_url = f"{settings.SUPABASE_URL}/auth/v1/admin/users/{professor_id}"
+            headers = {
+                "apikey": settings.SUPABASE_SERVICE_KEY,
+                "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
+                "Content-Type": "application/json"
+            }
+            requests.delete(delete_url, headers=headers)
+        except Exception as auth_exc:
+            print(f"AVISO: Falha ao deletar usuário do Auth: {auth_exc}")
+            # Não levanta exceção aqui para não abortar a operação
+        
+        return None
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

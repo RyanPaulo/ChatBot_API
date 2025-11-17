@@ -3,6 +3,8 @@ import os
 import shutil
 import json
 import uuid
+import re
+import unicodedata
 import google.generativeai as genai
 from ..config import settings
 from ..supabase_client import supabase
@@ -78,9 +80,40 @@ def _buscar_id_disciplina_por_nome(nome_disciplina: str) -> str | None:
         return None
 
 
+def _normalizar_nome_arquivo(nome_arquivo: str) -> str:
+    """
+    Normaliza o nome do arquivo para ser compatível com Supabase Storage.
+    Remove acentos, espaços e caracteres especiais, mantendo apenas alfanuméricos, hífens e underscores.
+    """
+    # Separa nome e extensão
+    nome_base, extensao = os.path.splitext(nome_arquivo)
+    
+    # Remove acentos e normaliza para ASCII
+    nome_normalizado = unicodedata.normalize('NFKD', nome_base)
+    nome_normalizado = ''.join(c for c in nome_normalizado if not unicodedata.combining(c))
+    
+    # Remove caracteres especiais, mantém apenas alfanuméricos, hífens e underscores
+    nome_normalizado = re.sub(r'[^a-zA-Z0-9_-]', '_', nome_normalizado)
+    
+    # Remove underscores múltiplos
+    nome_normalizado = re.sub(r'_+', '_', nome_normalizado)
+    
+    # Remove underscores no início e fim
+    nome_normalizado = nome_normalizado.strip('_')
+    
+    # Se ficar vazio, usa um nome padrão
+    if not nome_normalizado:
+        nome_normalizado = "documento"
+    
+    # Adiciona UUID para evitar conflitos e retorna com extensão
+    nome_final = f"{nome_normalizado}_{uuid.uuid4().hex[:8]}{extensao}"
+    
+    return nome_final
+
+
 def _upload_para_supabase_storage(caminho_arquivo: str, nome_arquivo: str) -> str:
     """
-    Faz upload do arquivo para o Supabase Storage usando o nome original do arquivo.
+    Faz upload do arquivo para o Supabase Storage usando um nome normalizado.
     Retorna a URL pública.
     """
     print(f"   [Storage] 1. Fazendo upload do arquivo para o bucket '{BUCKET_NAME}'...")
@@ -90,20 +123,43 @@ def _upload_para_supabase_storage(caminho_arquivo: str, nome_arquivo: str) -> st
         with open(caminho_arquivo, "rb") as f:
             file_data = f.read()
         
-        # Usa o nome original do arquivo (com "upsert" para sobrescrever se já existir)
-        # Remove espaços extras e normaliza o nome
-        nome_arquivo_limpo = nome_arquivo.strip()
+        # Normaliza o nome do arquivo para ser compatível com Supabase Storage
+        nome_arquivo_normalizado = _normalizar_nome_arquivo(nome_arquivo)
         
-        # Faz upload para o bucket usando o nome original
-        response = supabase.storage.from_(BUCKET_NAME).upload(
-            path=nome_arquivo_limpo,
-            file=file_data,
-            file_options={"content-type": "application/octet-stream", "upsert": "true"}
-        )
+        print(f"   [Storage] Nome original: {nome_arquivo}")
+        print(f"   [Storage] Nome normalizado: {nome_arquivo_normalizado}")
+        
+        # Faz upload para o bucket usando o nome normalizado
+        # Usa a service key que deve contornar RLS
+        try:
+            response = supabase.storage.from_(BUCKET_NAME).upload(
+                path=nome_arquivo_normalizado,
+                file=file_data,
+                file_options={
+                    "content-type": "application/octet-stream",
+                    "upsert": "true",
+                    "x-upsert": "true"  # Garante upsert
+                }
+            )
+        except Exception as upload_error:
+            # Se der erro de RLS, tenta criar o bucket primeiro (se não existir)
+            error_str = str(upload_error)
+            if "row-level security" in error_str.lower() or "403" in error_str or "Unauthorized" in error_str:
+                print(f"   [Storage] Erro de RLS detectado. Verificando configuração do bucket...")
+                print(f"   [Storage] AVISO: O bucket '{BUCKET_NAME}' pode ter RLS habilitado.")
+                print(f"   [Storage] Solução: No Supabase Dashboard, vá em Storage > {BUCKET_NAME} > Policies")
+                print(f"   [Storage] e desabilite RLS ou crie uma política que permita uploads com service key.")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Erro de permissão no Supabase Storage. O bucket '{BUCKET_NAME}' tem RLS habilitado. "
+                           f"Desabilite RLS no bucket ou configure políticas adequadas no Supabase Dashboard. "
+                           f"Erro original: {error_str}",
+                )
+            raise
         
         # Obtém a URL pública do arquivo
         # get_public_url retorna um dicionário com a chave 'publicUrl' ou a URL diretamente
-        public_url_response = supabase.storage.from_(BUCKET_NAME).get_public_url(nome_arquivo_limpo)
+        public_url_response = supabase.storage.from_(BUCKET_NAME).get_public_url(nome_arquivo_normalizado)
         
         # Se for um dicionário, extrai a URL; se for string, usa diretamente
         if isinstance(public_url_response, dict):
@@ -111,7 +167,7 @@ def _upload_para_supabase_storage(caminho_arquivo: str, nome_arquivo: str) -> st
         else:
             url_documento = str(public_url_response)
         
-        print(f"   [Storage] 2. Arquivo enviado com sucesso com nome original: {nome_arquivo_limpo}")
+        print(f"   [Storage] 2. Arquivo enviado com sucesso!")
         print(f"   [Storage] 3. URL pública: {url_documento}")
         
         return url_documento

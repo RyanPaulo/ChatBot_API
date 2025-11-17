@@ -333,21 +333,6 @@ INSTRUÇÕES:
         return ""
 
 
-@router.get("/testar-baseconhecimento")
-async def testar_baseconhecimento(q: str):
-    """
-    Endpoint de teste para verificar se a base de conhecimento está sendo consultada.
-    Usa a mesma lógica do endpoint de IA, mas retorna diretamente os contextos encontrados.
-    """
-    contextos, documentos = _buscar_contextos_da_base(q)
-    return {
-        "query": q,
-        "quantidade_contextos": len(contextos),
-        "contextos": contextos,
-        "documentos_encontrados": len(documentos),
-        "urls_documentos": [doc["url_documento"] for doc in documentos[:3]],
-    }
-
 
 @router.post("/gerar-resposta")
 async def gerar_resposta_com_ia(request: GenerationRequest):
