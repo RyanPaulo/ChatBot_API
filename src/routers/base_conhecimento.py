@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Annotated
 from fastapi import APIRouter, HTTPException, status, Query
 from ..supabase_client import supabase
-from ..schemas.sch_base_conhecimento import BaseConhecimento, BaseConhecimentoCreate, BaseConhecimentoUpdate
+from ..schemas.sch_base_conhecimento import BaseConhecimento, BaseConhecimentoCreate, BaseConhecimentoUpdate, DocumentoURLResponse
 import uuid
 import json
 
@@ -94,6 +94,75 @@ def get_conhecimento(item_id: uuid.UUID):
         return convert_json_fields(db_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+### ENDPOINT PARA CONSULTA URL DO DOCUMENTO POR TERMO DE BUSCA ###
+@router.get("/get_baseconhecimento_url_documento/{termo_busca}", response_model=DocumentoURLResponse)
+def get_url_documento_por_termo(termo_busca: str):
+    """
+    Busca o URL do documento na base de conhecimento por termo.
+    Faz busca flexível no nome do arquivo e nas palavras-chave.
+    Exemplo: "cocomo" encontrará "CoCoMo_Marcelo.pdf"
+    """
+    try:
+        # Remove espaços e converte para minúsculas para busca mais flexível
+        termo_limpo = termo_busca.strip().lower()
+        
+        # Busca por nome do arquivo (busca parcial case-insensitive)
+        response_nome = supabase.table("baseconhecimento").select(
+            "url_documento, nome_arquivo_origem"
+        ).ilike('nome_arquivo_origem', f'%{termo_limpo}%').execute()
+        
+        # Se não encontrou por nome, tenta buscar nas palavras-chave
+        if not response_nome.data:
+            # Busca em todos os registros e filtra por palavra-chave no código
+            response_todos = supabase.table("baseconhecimento").select(
+                "url_documento, nome_arquivo_origem, palavra_chave"
+            ).execute()
+            
+            # Filtra registros onde o termo está nas palavras-chave
+            resultados = []
+            for item in response_todos.data:
+                palavras_chave = item.get('palavra_chave', [])
+                # Se palavra_chave é string JSON, converte
+                if isinstance(palavras_chave, str):
+                    try:
+                        palavras_chave = json.loads(palavras_chave)
+                    except:
+                        palavras_chave = []
+                
+                # Verifica se o termo está em alguma palavra-chave
+                if any(termo_limpo in str(palavra).lower() for palavra in palavras_chave):
+                    resultados.append({
+                        'url_documento': item.get('url_documento'),
+                        'nome_arquivo_origem': item.get('nome_arquivo_origem')
+                    })
+            
+            if resultados:
+                # Retorna o primeiro resultado encontrado
+                resultado = resultados[0]
+                if not resultado.get('url_documento'):
+                    raise HTTPException(status_code=404, detail="Documento encontrado mas sem URL disponível.")
+                return resultado
+        else:
+            # Encontrou por nome do arquivo
+            resultado = response_nome.data[0]
+            if not resultado.get('url_documento'):
+                raise HTTPException(status_code=404, detail="Documento encontrado mas sem URL disponível.")
+            return resultado
+        
+        # Se chegou aqui, não encontrou nada
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Nenhum documento encontrado com o termo '{termo_busca}'. Tente buscar por parte do nome do arquivo ou palavra-chave."
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao buscar documento: {str(e)}")
+
+
+
 
 ### ENDPOINT PARA ATUALIZAR UM ITEM DE CONHECIMENTO ###
 @router.put("/update/{item_id}", response_model=BaseConhecimento)

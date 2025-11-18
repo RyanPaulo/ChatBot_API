@@ -14,6 +14,7 @@ class BaseConhecimentoBase(BaseModel):
     categoria: Optional[str] = None
     status: str = "rascunho"
     id_disciplina: Optional[uuid.UUID] = None
+    url_documento: Optional[str] = None
 
 
 # Esquema para a criado de uma no base de conhecimento
@@ -38,4 +39,10 @@ class BaseConhecimentoUpdate(BaseModel):
     palavra_chave: Optional[List[str]] = None
     categoria: Optional[str] = None
     status: Optional[str] = None
+    url_documento: Optional[str] = None
     id_disciplina: Optional[uuid.UUID] = None
+
+# Schema simples para retornar apenas o URL do documento
+class DocumentoURLResponse(BaseModel):
+    url_documento: str
+    nome_arquivo_origem: Optional[str] = None
