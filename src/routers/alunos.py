@@ -23,7 +23,7 @@ def create_aluno(aluno_data: AlunoCreate, current_user: dict = Depends(require_a
             "options": {
                 "data": {
                     "name": f"{aluno_data.nome_aluno} {aluno_data.sobrenome_aluno}",
-                    "role": "admin"
+                    "role": "aluno"
                 }
             }
         })
@@ -67,7 +67,7 @@ def create_aluno(aluno_data: AlunoCreate, current_user: dict = Depends(require_a
 
 ### ENDPOINT PARA BUSCAR UM ALUNO PELO EMAIL ###
 @router.get("/get_email/{email}", response_model=Aluno)
-def get_aluno_by_email(email: str, current_user: dict = Depends(require_all)):  
+def get_aluno_by_email(email: str): #, current_user: dict = Depends(require_all) 
     try:
         # Realiza a consulta na tabela "aluno" filtrando pelo email_institucional
         response = supabase.table("aluno").select("*").eq("email_institucional", email).single().execute()
