@@ -107,6 +107,32 @@ def get_all_professores():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+### ENDPOINT PARA BUSCAR PROFESSOR PELO NOME ###
+@router.get("/get_nome/{nome}", response_model=List[Professor])
+def get_professor_by_nome(nome: str):
+    try:
+        # Realiza a consulta na tabela "professor" filtrando pelo nome_professor (busca parcial e case-insensitive)
+        response = supabase.table("professor").select("*").ilike("nome_professor", f"%{nome}%").execute()
+
+        # Verifica se a busca retornou algum dado
+        if not response.data:
+            # Se não retornou, o professor não foi encontrado. Lançamos um erro 404.
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Nenhum professor encontrado com o nome '{nome}'."
+            )
+
+        # Se encontrou, retorna os dados dos professores.
+        return response.data
+
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Um erro inesperado ocorreu: {str(e)}"
+        )
+
 ### ENDPOINT PARA ATUALIZAR CADASTRO DO PROFESSORES ###
 @router.put("/update/{id}", response_model=Professor)
 def update_professor(id: str, professor_update_data: ProfessorUpdate):

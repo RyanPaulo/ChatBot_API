@@ -107,6 +107,32 @@ def get_all_aluno():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+### ENDPOINT PARA BUSCAR COORDENADOR PELO NOME ###
+@router.get("/get_nome/{nome}", response_model=List[Coordenador])
+def get_coordenador_by_nome(nome: str):
+    try:
+        # Realiza a consulta na tabela "coordenador" filtrando pelo nome_coordenador (busca parcial e case-insensitive)
+        response = supabase.table("coordenador").select("*").ilike("nome_coordenador", f"%{nome}%").execute()
+
+        # Verifica se a busca retornou algum dado
+        if not response.data:
+            # Se não retornou, o coordenador não foi encontrado. Lançamos um erro 404.
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Nenhum coordenador encontrado com o nome '{nome}'."
+            )
+
+        # Se encontrou, retorna os dados dos coordenadores.
+        return response.data
+
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Um erro inesperado ocorreu: {str(e)}"
+        )
+
 ### ENDPOINT PARA ATUALIZAR COORDENADOR ###
 @router.put("/update/{id}", response_model=Coordenador)
 def update_coordenador(id: str, coordenador_update_data: CoordenadorUpdate):
