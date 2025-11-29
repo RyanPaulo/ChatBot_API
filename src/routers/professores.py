@@ -100,7 +100,7 @@ def create_professor(professor_data: ProfessorCreate, current_user: dict = Depen
 
 ### ENDPOINT PARA LISTAR TODOS OS PROFESSORES CADASTRADOS NO BD ###
 @router.get("/lista_professores/", response_model=List[Professor])
-def get_all_professores(current_user: dict = Depends(require_all)):
+def get_all_professores():
     try:
         response = supabase.table("professor").select("*").execute()
         return response.data
@@ -109,7 +109,7 @@ def get_all_professores(current_user: dict = Depends(require_all)):
 
 ### ENDPOINT PARA ATUALIZAR CADASTRO DO PROFESSORES ###
 @router.put("/update/{id}", response_model=Professor)
-def update_professor(id: str, professor_update_data: ProfessorUpdate, current_user: dict = Depends(require_admin_or_coordenador_or_professor)):
+def update_professor(id: str, professor_update_data: ProfessorUpdate):
     try:
 
         update_payload = professor_update_data.model_dump(exclude_unset=True)

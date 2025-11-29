@@ -1,8 +1,9 @@
 from typing import List
 from ..schemas.sch_cronograma import Cronograma
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from ..supabase_client import supabase
 from ..schemas.sch_disciplina import DisciplinaCreate, Disciplina, DisciplinaUpdate, DisciplinaEmenta
+# from ..dependencies import 
 import uuid
 
 # --- ROUTER DISCIPLINA ---

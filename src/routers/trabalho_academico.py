@@ -8,11 +8,7 @@ from ..schemas.sch_trabalho_academico import (
     TrabalhoAcademicoUpdate,
     TipoTrabalhoEnum,
 )
-from ..dependencies import (
-    require_admin_or_coordenador_or_professor,
-    require_all,
-    require_admin_or_coordenador,
-)
+from ..dependencies import require_admin_or_coordenador
 import uuid
 
 # --- ROUTER TRABALHO ACADÊMICO ---
@@ -25,10 +21,7 @@ router = APIRouter(
 
 ### ENDPOINT PARA CADASTRAR TRABALHO ACADÊMICO ###
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=TrabalhoAcademico)
-def create_trabalho_academico(
-    trabalho_data: TrabalhoAcademicoCreate,
-    current_user: dict = Depends(require_admin_or_coordenador_or_professor),
-):
+def create_trabalho_academico(trabalho_data: TrabalhoAcademicoCreate):
     try:
         payload = trabalho_data.model_dump()
 
@@ -58,10 +51,7 @@ def create_trabalho_academico(
 
 ### ENDPOINT PARA BUSCAR TRABALHO POR ID ###
 @router.get("/{trabalho_id}", response_model=TrabalhoAcademico)
-def get_trabalho_academico_by_id(
-    trabalho_id: uuid.UUID,
-    current_user: dict = Depends(require_all),
-):
+def get_trabalho_academico_by_id(trabalho_id: uuid.UUID):
     try:
         response = (
             supabase.table("trabalho_academico")
@@ -83,10 +73,7 @@ def get_trabalho_academico_by_id(
 
 ### ENDPOINT PARA LISTAR TRABALHOS POR CURSO ###
 @router.get("/curso/{curso_id}", response_model=List[TrabalhoAcademico])
-def get_trabalhos_por_curso(
-    curso_id: uuid.UUID,
-    current_user: dict = Depends(require_all),
-):
+def get_trabalhos_por_curso(curso_id: uuid.UUID):
     try:
         response = (
             supabase.table("trabalho_academico")
@@ -101,10 +88,7 @@ def get_trabalhos_por_curso(
 
 ### ENDPOINT PARA LISTAR TRABALHOS POR DISCIPLINA ###
 @router.get("/disciplina/{disciplina_id}", response_model=List[TrabalhoAcademico])
-def get_trabalhos_por_disciplina(
-    disciplina_id: uuid.UUID,
-    current_user: dict = Depends(require_all),
-):
+def get_trabalhos_por_disciplina(disciplina_id: uuid.UUID):
     try:
         response = (
             supabase.table("trabalho_academico")
@@ -119,11 +103,7 @@ def get_trabalhos_por_disciplina(
 
 ### ENDPOINT PARA ATUALIZAR TRABALHO POR ID ###
 @router.put("/update/{trabalho_id}", response_model=TrabalhoAcademico)
-def update_trabalho_academico(
-    trabalho_id: uuid.UUID,
-    trabalho_update_data: TrabalhoAcademicoUpdate,
-    current_user: dict = Depends(require_admin_or_coordenador_or_professor),
-):
+def update_trabalho_academico(trabalho_id: uuid.UUID, trabalho_update_data: TrabalhoAcademicoUpdate):
     try:
         update_payload = trabalho_update_data.model_dump(exclude_unset=True)
 

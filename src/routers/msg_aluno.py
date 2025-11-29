@@ -1,9 +1,12 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from ..supabase_client import supabase
 from typing import List
 from ..schemas.sch_msg_aluno import MensagemAluno, MensagemAlunoCreate, MensagemAlunoUpdate
+# from ..dependencies import 
 import uuid
 import json
+
+
 
 # --- ROUTER MENSAGEM DOS ALUNOS ---
 

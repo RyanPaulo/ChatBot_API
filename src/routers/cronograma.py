@@ -1,7 +1,8 @@
 from typing import List
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from ..supabase_client import supabase
 from ..schemas.sch_cronograma import CronogramaCreate, Cronograma, CronogramaUpdate
+#  from ..dependencies import 
 import uuid
 
 # --- ROUTER CRONOGRAMA ---

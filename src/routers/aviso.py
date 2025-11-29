@@ -59,7 +59,7 @@ def get_aviso(aviso_id: uuid.UUID):
 
 ### ENDPOINT PARA LISTAR TODOS OS AVISOS ###
 @router.get("/get_lista_aviso/", response_model=List[Aviso])
-def get_all_avisos(current_user: dict = Depends(require_aluno)):
+def get_all_avisos():
     try:
         response = supabase.table("aviso").select("*").execute()
         return response.data

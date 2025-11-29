@@ -1,8 +1,9 @@
 from src.schemas.sch_disciplina import Disciplina
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from ..supabase_client import supabase
 from pydantic import BaseModel
 from typing import List
+# from ..dependencies import 
 import uuid
 
 # --- ROUTER CURSO DISCIPLINA ---

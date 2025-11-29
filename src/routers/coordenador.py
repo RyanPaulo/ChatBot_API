@@ -100,7 +100,7 @@ def create_coordenador(coordenador_data: CoordenadorCreate, current_user: dict =
 
 ### ENDPOINT PARA LISTAR TODOS OS ALUNOS CADASTRADOS NO BD ###
 @router.get("/get_list_coordenador/", response_model=List[Coordenador])
-def get_all_aluno(current_user: dict = Depends(require_all)):
+def get_all_aluno():
     try:
         response = supabase.table("coordenador").select("*").execute()
         return response.data
@@ -109,7 +109,7 @@ def get_all_aluno(current_user: dict = Depends(require_all)):
 
 ### ENDPOINT PARA ATUALIZAR COORDENADOR ###
 @router.put("/update/{id}", response_model=Coordenador)
-def update_coordenador(id: str, coordenador_update_data: CoordenadorUpdate, current_user: dict = Depends(require_admin_or_coordenador)):
+def update_coordenador(id: str, coordenador_update_data: CoordenadorUpdate):
     try:
         # Verificar se o id é um UUID (tem hífens e formato UUID) ou id_funcional
         uuid_pattern = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.IGNORECASE)

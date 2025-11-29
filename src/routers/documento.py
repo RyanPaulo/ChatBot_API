@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, status, Form
+from fastapi import APIRouter, UploadFile, File, HTTPException, status, Form, Depends
 import os
 import shutil
 import json
@@ -8,7 +8,7 @@ import unicodedata
 import google.generativeai as genai
 from ..config import settings
 from ..supabase_client import supabase
-
+# from ..dependencies import 
 
 router = APIRouter(
     prefix="/documentos",

@@ -1,9 +1,10 @@
 from datetime import datetime
 # from idlelib.query import Query
 from typing import Annotated
-from fastapi import APIRouter, HTTPException, status, Query
+from fastapi import APIRouter, HTTPException, status, Query, Depends
 from ..supabase_client import supabase
 from ..schemas.sch_base_conhecimento import BaseConhecimento, BaseConhecimentoCreate, BaseConhecimentoUpdate, DocumentoURLResponse
+# from ..dependencies import 
 import uuid
 import json
 
@@ -162,6 +163,20 @@ def get_url_documento_por_termo(termo_busca: str):
         raise HTTPException(status_code=500, detail=f"Erro ao buscar documento: {str(e)}")
 
 
+### ENDPOINT PARA LISTAR TODOS OS ITENS DE CONHECIMENTO ###
+@router.get("/get_lista_conhecimento", response_model=list[BaseConhecimento])
+def list_all_conhecimento():
+
+    try:
+        response = supabase.table("baseconhecimento").select("*").execute()
+        
+        if not response.data:
+            return []
+        
+        # Converte cada item
+        return [convert_json_fields(item) for item in response.data]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao listar base de conhecimento: {e}")
 
 
 ### ENDPOINT PARA ATUALIZAR UM ITEM DE CONHECIMENTO ###

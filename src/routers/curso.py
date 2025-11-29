@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from datetime import timedelta
 from ..supabase_client import supabase
 from ..schemas.sch_curso import Curso, CursoCreate, CursoUpadate
+# from ..dependencies import 
 import uuid
 import json
 

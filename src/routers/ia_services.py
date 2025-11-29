@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 import google.generativeai as genai
 import requests
@@ -6,6 +6,8 @@ import os
 import tempfile
 from ..config import settings
 from ..supabase_client import supabase
+# from ..dependencies import 
+
 
 # Carrega a chave da API do Gemini
 genai.configure(api_key=settings.GOOGLE_API_KEY)

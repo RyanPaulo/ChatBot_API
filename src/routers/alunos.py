@@ -93,7 +93,7 @@ def get_aluno_by_email(email: str): #, current_user: dict = Depends(require_all)
 
 ### ENDPOINT PARA LISTAR TODOS OS ALUNOS CADASTRADOS NO BD ###
 @router.get("/get_list_alunos/", response_model=List[Aluno])
-def get_all_aluno(current_user: dict = Depends(require_all)):  
+def get_all_aluno():  
     try:
         response = supabase.table("aluno").select("*").execute()
         return response.data
@@ -103,7 +103,7 @@ def get_all_aluno(current_user: dict = Depends(require_all)):
 ### ENDPOINT PARA ATUALIZAR UM ALUNO ###
 # Utilizando o RA do aluno como referencia o RA do aluno
 @router.put("/update/{ra}", response_model=Aluno)
-def update_aluno(ra: str, aluno_update_data: AlunoUpdate, current_user: dict = Depends(require_admin_or_coordenador_or_professor)): 
+def update_aluno(ra: str, aluno_update_data: AlunoUpdate): 
     try:
         # Cria um dicionario apensa com os dados que foram enviados (nâo none)
         update_payload = aluno_update_data.model_dump(exclude_unset=True)
