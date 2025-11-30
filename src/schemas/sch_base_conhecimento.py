@@ -14,6 +14,10 @@ class BaseConhecimentoBase(BaseModel):
     categoria: Optional[str] = None
     status: str = "rascunho"
     id_disciplina: Optional[uuid.UUID] = None
+    id_tcc: Optional[uuid.UUID] = None
+    id_aps: Optional[uuid.UUID] = None
+    id_estagio: Optional[uuid.UUID] = None
+    id_hora_complementares: Optional[uuid.UUID] = None
     url_documento: Optional[str] = None
 
 
@@ -41,6 +45,10 @@ class BaseConhecimentoUpdate(BaseModel):
     status: Optional[str] = None
     url_documento: Optional[str] = None
     id_disciplina: Optional[uuid.UUID] = None
+    id_tcc: Optional[uuid.UUID] = None
+    id_aps: Optional[uuid.UUID] = None
+    id_estagio: Optional[uuid.UUID] = None
+    id_hora_complementares: Optional[uuid.UUID] = None
 
 # Schema simples para retornar apenas o URL do documento
 class DocumentoURLResponse(BaseModel):

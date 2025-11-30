@@ -17,7 +17,7 @@ router = APIRouter(
 
 
 # Pasta temporária para processar arquivos antes de enviar ao Supabase Storage
-TEMP_FOLDER_PATH = "D:/APS/api_gemini/connectors/teams_mock_files"
+TEMP_FOLDER_PATH = "./temporary_documents_folder"
 
 # Garante que a pasta temporária exista
 os.makedirs(TEMP_FOLDER_PATH, exist_ok=True)
@@ -77,6 +77,192 @@ def _buscar_id_disciplina_por_nome(nome_disciplina: str) -> str | None:
         return None
     except Exception as e:
         print(f"   [ERRO Busca] Erro ao buscar disciplina: {e}")
+        return None
+
+
+def _buscar_id_curso_por_nome(nome_curso: str) -> str | None:
+    """
+    Busca o UUID de um curso diretamente no Supabase pela coluna nome_curso.
+    """
+    print(
+        f"   [Busca] Procurando ID para o curso '{nome_curso}' na tabela 'curso'..."
+    )
+    try:
+        # Usamos limit(1) em vez de .single() para evitar erro quando não há linhas
+        response = (
+            supabase.table("curso")
+            .select("id_curso")
+            .eq("nome_curso", nome_curso)
+            .limit(1)
+            .execute()
+        )
+
+        rows = response.data or []
+        if rows:
+            curso_id = rows[0].get("id_curso")
+            if curso_id:
+                print(f"   [Busca] ID do curso encontrado: {curso_id}")
+                return curso_id
+
+        print(f"   [Busca] Nenhum curso encontrado com o nome '{nome_curso}'.")
+        return None
+    except Exception as e:
+        print(f"   [ERRO Busca] Erro ao buscar curso: {e}")
+        return None
+
+
+def _normalizar_tipo_trabalho(tipo: str) -> str:
+    """
+    Normaliza o tipo de trabalho para corresponder aos valores do enum no banco.
+    Mapeia valores comuns para os valores exatos do enum.
+    """
+    tipo_lower = tipo.strip().lower()
+    
+    # Mapeamento de valores comuns para valores do enum
+    mapeamento = {
+        "tcc": "TC 1",  # ou "TC 2" dependendo do caso
+        "tc1": "TC 1",
+        "tc 1": "TC 1",
+        "tc2": "TC 2",
+        "tc 2": "TC 2",
+        "aps": "APS",
+        "APS": "APS",
+        "estagio": "estagio",
+        "estágio": "estagio",
+        "hora_complementares": "horas_complementares",
+        "horas_complementares": "horas_complementares",
+        "hora complementares": "horas_complementares",
+        "horas complementares": "horas_complementares",
+    }
+    
+    # Se encontrar no mapeamento, retorna o valor mapeado
+    if tipo_lower in mapeamento:
+        return mapeamento[tipo_lower]
+    
+    # Se não encontrar, tenta capitalizar (para "APS" -> "APS")
+    return tipo.strip().upper() if tipo_lower == "aps" else tipo.strip()
+
+
+def _buscar_id_trabalho_por_tipo_e_curso(tipo_trabalho: str, id_curso: str) -> str | None:
+    """
+    Busca o UUID de um trabalho acadêmico diretamente no Supabase pela coluna tipo e id_curso.
+    Usa comparação exata (eq) pois a coluna tipo pode ser um enum.
+    """
+    print(
+        f"   [Busca] Procurando ID para o trabalho do tipo '{tipo_trabalho}' e curso '{id_curso}' na tabela 'trabalho_academico'..."
+    )
+    try:
+        # Normaliza o tipo para corresponder ao valor do enum
+        tipo_normalizado = _normalizar_tipo_trabalho(tipo_trabalho)
+        print(f"   [Busca] Tipo normalizado: '{tipo_normalizado}'")
+        
+        # Usamos eq para comparação exata (necessário para enums)
+        response = (
+            supabase.table("trabalho_academico")
+            .select("id_trabalho")
+            .eq("tipo", tipo_normalizado)
+            .eq("id_curso", id_curso)
+            .limit(1)
+            .execute()
+        )
+
+        rows = response.data or []
+        if rows:
+            trabalho_id = rows[0].get("id_trabalho")
+            if trabalho_id:
+                print(f"   [Busca] ID do trabalho encontrado: {trabalho_id}")
+                return trabalho_id
+
+        print(f"   [Busca] Nenhum trabalho encontrado com o tipo '{tipo_normalizado}' para o curso '{id_curso}'.")
+        return None
+    except Exception as e:
+        print(f"   [ERRO Busca] Erro ao buscar trabalho acadêmico: {e}")
+        return None
+
+
+def _buscar_id_trabalho_por_tipo_e_disciplina(tipo_trabalho: str, id_disciplina: str) -> str | None:
+    """
+    Busca o UUID de um trabalho acadêmico diretamente no Supabase pela coluna tipo e id_disciplina.
+    Usa comparação exata (eq) pois a coluna tipo pode ser um enum.
+    """
+    print(
+        f"   [Busca] Procurando ID para o trabalho do tipo '{tipo_trabalho}' e disciplina '{id_disciplina}' na tabela 'trabalho_academico'..."
+    )
+    try:
+        # Normaliza o tipo para corresponder ao valor do enum
+        tipo_normalizado = _normalizar_tipo_trabalho(tipo_trabalho)
+        print(f"   [Busca] Tipo normalizado: '{tipo_normalizado}'")
+        
+        # Usamos eq para comparação exata (necessário para enums)
+        response = (
+            supabase.table("trabalho_academico")
+            .select("id_trabalho")
+            .eq("tipo", tipo_normalizado)
+            .eq("id_disciplina", id_disciplina)
+            .limit(1)
+            .execute()
+        )
+
+        rows = response.data or []
+        if rows:
+            trabalho_id = rows[0].get("id_trabalho")
+            if trabalho_id:
+                print(f"   [Busca] ID do trabalho encontrado: {trabalho_id}")
+                return trabalho_id
+
+        print(f"   [Busca] Nenhum trabalho encontrado com o tipo '{tipo_normalizado}' para a disciplina '{id_disciplina}'.")
+        return None
+    except Exception as e:
+        print(f"   [ERRO Busca] Erro ao buscar trabalho acadêmico: {e}")
+        return None
+
+
+def _buscar_id_trabalho_por_tipo_curso_e_data(tipo_trabalho: str, id_curso: str, data_entrega: str) -> str | None:
+    """
+    Busca o UUID de um trabalho acadêmico diretamente no Supabase pela coluna tipo, id_curso e data_entrega.
+    Usa comparação exata (eq) pois a coluna tipo pode ser um enum.
+    Se o tipo for "tcc", tenta buscar tanto "TC 1" quanto "TC 2".
+    """
+    print(
+        f"   [Busca] Procurando ID para o trabalho do tipo '{tipo_trabalho}', curso '{id_curso}' e data_entrega '{data_entrega}' na tabela 'trabalho_academico'..."
+    )
+    try:
+        tipo_lower = tipo_trabalho.strip().lower()
+        
+        # Se for "tcc", tenta buscar tanto "TC 1" quanto "TC 2"
+        if tipo_lower == "tcc":
+            tipos_para_tentar = ["TC 1", "TC 2"]
+        else:
+            # Normaliza o tipo para corresponder ao valor do enum
+            tipo_normalizado = _normalizar_tipo_trabalho(tipo_trabalho)
+            tipos_para_tentar = [tipo_normalizado]
+        
+        # Tenta buscar para cada tipo
+        for tipo_normalizado in tipos_para_tentar:
+            print(f"   [Busca] Tentando tipo: '{tipo_normalizado}'")
+            
+            # Usamos eq para comparação exata (necessário para enums e datas)
+            response = (
+                supabase.table("trabalho_academico")
+                .select("id_trabalho")
+                .eq("tipo", tipo_normalizado)
+                .eq("id_curso", id_curso)
+                .eq("data_entrega", data_entrega)
+                .limit(1)
+                .execute()
+            )
+
+            rows = response.data or []
+            if rows:
+                trabalho_id = rows[0].get("id_trabalho")
+                if trabalho_id:
+                    print(f"   [Busca] ID do trabalho encontrado: {trabalho_id} (tipo: '{tipo_normalizado}')")
+                    return trabalho_id
+
+        print(f"   [Busca] Nenhum trabalho encontrado com o tipo '{tipo_trabalho}' (tentou: {tipos_para_tentar}), curso '{id_curso}' e data_entrega '{data_entrega}'.")
+        return None
+    except Exception as e:
+        print(f"   [ERRO Busca] Erro ao buscar trabalho acadêmico: {e}")
         return None
 
 
@@ -257,7 +443,7 @@ Regras importantes:
     }
 
 
-@router.post("/upload", status_code=status.HTTP_201_CREATED)
+@router.post("/upload_disciplina", status_code=status.HTTP_201_CREATED)
 async def upload_documento(
     file: UploadFile = File(...),
     nome_disciplina: str = Form(..., description="Nome exato da disciplina cadastrada"),
@@ -358,5 +544,458 @@ async def upload_documento(
         )
     finally:
         # Fecha o arquivo para liberar recursos
+        await file.close()
+
+
+@router.post("/upload_tcc", status_code=status.HTTP_201_CREATED)
+async def upload_tcc(
+    file: UploadFile = File(...),
+    tipo: str = Form(..., description="Tipo do trabalho acadêmico (ex: tcc, aps, estagio, hora_complementares)"),
+    nome_curso: str = Form(..., description="Nome exato do curso cadastrado"),
+    data: str = Form(..., description="Data de entrega no formato YYYY-MM-DD (ex: 2025-11-06)"),
+):
+    # Validação básica do tipo de arquivo
+    allowed_content_types = [
+        "application/pdf",  # .pdf
+        "text/plain",  # .txt
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
+        "application/msword",  # .doc
+    ]
+    if file.content_type not in allowed_content_types:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"Tipo de arquivo '{file.content_type}' não suportado. Use PDF, TXT ou DOCX.",
+        )
+
+    try:
+        destination_path = os.path.join(TEMP_FOLDER_PATH, file.filename)
+
+        print(f"Recebendo arquivo: {file.filename}")
+        print(f"Salvando temporariamente em: {os.path.abspath(destination_path)}")
+
+        with open(destination_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # 1° - Consultar a tabela 'curso' e achar o id_curso com base no 'nome do curso'
+        curso_id = _buscar_id_curso_por_nome(nome_curso.strip())
+        if not curso_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Nenhum curso encontrado com o nome '{nome_curso}'."
+            )
+
+        # 2° - Pegar o 'id_curso' junto com o 'tipo' e 'data_entrega' e consultar a tabela 'trabalho_academico' e pegar o 'id_trabalho'
+        trabalho_id = _buscar_id_trabalho_por_tipo_curso_e_data(tipo.strip(), curso_id, data.strip())
+        if not trabalho_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Nenhum trabalho acadêmico do tipo '{tipo}' encontrado para o curso '{nome_curso}' com data de entrega '{data}' na tabela trabalho_academico."
+            )
+
+        # Processar o conteúdo com o Gemini
+        resultado_gemini = _processar_com_gemini(destination_path, file.content_type)
+
+        palavras_chave = resultado_gemini["palavras_chave"]
+        categoria = palavras_chave[0] if palavras_chave else "Geral"
+
+        # Fazer upload do arquivo para o Supabase Storage
+        url_documento = _upload_para_supabase_storage(destination_path, file.filename)
+
+        # Remover arquivo temporário
+        try:
+            os.remove(destination_path)
+            print(f"   [Limpeza] Arquivo temporário removido: {file.filename}")
+        except Exception as e:
+            print(f"   [AVISO] Não foi possível remover arquivo temporário: {e}")
+
+        # Montar payload para a tabela baseconhecimento
+        payload_base = {
+            "nome_arquivo_origem": file.filename,
+            "conteudo_processado": resultado_gemini["resumo"],
+            "palavra_chave": json.dumps(palavras_chave),
+            "categoria": categoria,
+            "status": "publicado",
+            "id_tcc": str(trabalho_id),
+            "url_documento": url_documento,
+        }
+
+        print("   [API] 6. Salvando conteúdo na tabela 'baseconhecimento'...")
+        db_response = (
+            supabase.table("baseconhecimento").insert(payload_base).execute()
+        )
+
+        if not db_response.data:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Erro ao salvar na base de conhecimento.",
+            )
+
+        registro = db_response.data[0]
+        print(
+            f"   [API] 7. Salvo com sucesso na base de conhecimento (id_conhecimento={registro.get('id_conhecimento')})."
+        )
+
+        return {
+            "message": f"Arquivo '{file.filename}' recebido, processado pelo Gemini, enviado para o Supabase Storage e salvo na base de conhecimento.",
+            "filename": file.filename,
+            "content_type": file.content_type,
+            "url_documento": url_documento,
+            "base_conhecimento": {
+                "id_conhecimento": registro.get("id_conhecimento"),
+                "categoria": categoria,
+                "id_tcc": trabalho_id,
+                "resumo": resultado_gemini["resumo"],
+                "palavra_chave": resultado_gemini["palavras_chave"],
+                "url_documento": url_documento,
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ocorreu um erro ao processar o arquivo: {e}",
+        )
+    finally:
+        await file.close()
+
+
+@router.post("/upload_aps", status_code=status.HTTP_201_CREATED)
+async def upload_aps(
+    file: UploadFile = File(...),
+    tipo: str = Form(..., description="Tipo do trabalho acadêmico (ex: tcc, aps, estagio, hora_complementares)"),
+    nome_disciplina: str = Form(..., description="Nome exato da disciplina cadastrada"),
+):
+    # Validação básica do tipo de arquivo
+    allowed_content_types = [
+        "application/pdf",  # .pdf
+        "text/plain",  # .txt
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
+        "application/msword",  # .doc
+    ]
+    if file.content_type not in allowed_content_types:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"Tipo de arquivo '{file.content_type}' não suportado. Use PDF, TXT ou DOCX.",
+        )
+
+    try:
+        destination_path = os.path.join(TEMP_FOLDER_PATH, file.filename)
+
+        print(f"Recebendo arquivo: {file.filename}")
+        print(f"Salvando temporariamente em: {os.path.abspath(destination_path)}")
+
+        with open(destination_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # 1° - Consultar a tabela 'disciplina' e achar o id_disciplina com base no 'nome da disciplina'
+        disciplina_id = _buscar_id_disciplina_por_nome(nome_disciplina.strip())
+        if not disciplina_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Nenhuma disciplina encontrada com o nome '{nome_disciplina}'."
+            )
+
+        # 2° - Pegar o 'id_disciplina' junto com o 'tipo' e consultar a tabela 'trabalho_academico' e pegar o 'id_trabalho'
+        trabalho_id = _buscar_id_trabalho_por_tipo_e_disciplina(tipo.strip(), disciplina_id)
+        if not trabalho_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Nenhum trabalho acadêmico do tipo '{tipo}' encontrado para a disciplina '{nome_disciplina}' na tabela trabalho_academico."
+            )
+
+        # Processar o conteúdo com o Gemini
+        resultado_gemini = _processar_com_gemini(destination_path, file.content_type)
+
+        palavras_chave = resultado_gemini["palavras_chave"]
+        categoria = palavras_chave[0] if palavras_chave else "Geral"
+
+        # Fazer upload do arquivo para o Supabase Storage
+        url_documento = _upload_para_supabase_storage(destination_path, file.filename)
+
+        # Remover arquivo temporário
+        try:
+            os.remove(destination_path)
+            print(f"   [Limpeza] Arquivo temporário removido: {file.filename}")
+        except Exception as e:
+            print(f"   [AVISO] Não foi possível remover arquivo temporário: {e}")
+
+        # Montar payload para a tabela baseconhecimento
+        payload_base = {
+            "nome_arquivo_origem": file.filename,
+            "conteudo_processado": resultado_gemini["resumo"],
+            "palavra_chave": json.dumps(palavras_chave),
+            "categoria": categoria,
+            "status": "publicado",
+            "id_aps": str(trabalho_id),
+            "url_documento": url_documento,
+        }
+
+        print("   [API] 6. Salvando conteúdo na tabela 'baseconhecimento'...")
+        db_response = (
+            supabase.table("baseconhecimento").insert(payload_base).execute()
+        )
+
+        if not db_response.data:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Erro ao salvar na base de conhecimento.",
+            )
+
+        registro = db_response.data[0]
+        print(
+            f"   [API] 7. Salvo com sucesso na base de conhecimento (id_conhecimento={registro.get('id_conhecimento')})."
+        )
+
+        return {
+            "message": f"Arquivo '{file.filename}' recebido, processado pelo Gemini, enviado para o Supabase Storage e salvo na base de conhecimento.",
+            "filename": file.filename,
+            "content_type": file.content_type,
+            "url_documento": url_documento,
+            "base_conhecimento": {
+                "id_conhecimento": registro.get("id_conhecimento"),
+                "categoria": categoria,
+                "id_aps": trabalho_id,
+                "resumo": resultado_gemini["resumo"],
+                "palavra_chave": resultado_gemini["palavras_chave"],
+                "url_documento": url_documento,
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ocorreu um erro ao processar o arquivo: {e}",
+        )
+    finally:
+        await file.close()
+
+
+@router.post("/upload_estagio", status_code=status.HTTP_201_CREATED)
+async def upload_estagio(
+    file: UploadFile = File(...),
+    tipo: str = Form(..., description="Tipo do trabalho acadêmico (ex: tcc, aps, estagio, hora_complementares)"),
+    nome_curso: str = Form(..., description="Nome exato do curso cadastrado"),
+):
+    # Validação básica do tipo de arquivo
+    allowed_content_types = [
+        "application/pdf",  # .pdf
+        "text/plain",  # .txt
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
+        "application/msword",  # .doc
+    ]
+    if file.content_type not in allowed_content_types:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"Tipo de arquivo '{file.content_type}' não suportado. Use PDF, TXT ou DOCX.",
+        )
+
+    try:
+        destination_path = os.path.join(TEMP_FOLDER_PATH, file.filename)
+
+        print(f"Recebendo arquivo: {file.filename}")
+        print(f"Salvando temporariamente em: {os.path.abspath(destination_path)}")
+
+        with open(destination_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # 1° - Consultar a tabela 'curso' e achar o id_curso com base no 'nome do curso'
+        curso_id = _buscar_id_curso_por_nome(nome_curso.strip())
+        if not curso_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Nenhum curso encontrado com o nome '{nome_curso}'."
+            )
+
+        # 2° - Pegar o 'id_curso' junto com o 'tipo' e consultar a tabela 'trabalho_academico' e pegar o 'id_trabalho'
+        trabalho_id = _buscar_id_trabalho_por_tipo_e_curso(tipo.strip(), curso_id)
+        if not trabalho_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Nenhum trabalho acadêmico do tipo '{tipo}' encontrado para o curso '{nome_curso}' na tabela trabalho_academico."
+            )
+
+        # Processar o conteúdo com o Gemini
+        resultado_gemini = _processar_com_gemini(destination_path, file.content_type)
+
+        palavras_chave = resultado_gemini["palavras_chave"]
+        categoria = palavras_chave[0] if palavras_chave else "Geral"
+
+        # Fazer upload do arquivo para o Supabase Storage
+        url_documento = _upload_para_supabase_storage(destination_path, file.filename)
+
+        # Remover arquivo temporário
+        try:
+            os.remove(destination_path)
+            print(f"   [Limpeza] Arquivo temporário removido: {file.filename}")
+        except Exception as e:
+            print(f"   [AVISO] Não foi possível remover arquivo temporário: {e}")
+
+        # Montar payload para a tabela baseconhecimento
+        payload_base = {
+            "nome_arquivo_origem": file.filename,
+            "conteudo_processado": resultado_gemini["resumo"],
+            "palavra_chave": json.dumps(palavras_chave),
+            "categoria": categoria,
+            "status": "publicado",
+            "id_estagio": str(trabalho_id),
+            "url_documento": url_documento,
+        }
+
+        print("   [API] 6. Salvando conteúdo na tabela 'baseconhecimento'...")
+        db_response = (
+            supabase.table("baseconhecimento").insert(payload_base).execute()
+        )
+
+        if not db_response.data:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Erro ao salvar na base de conhecimento.",
+            )
+
+        registro = db_response.data[0]
+        print(
+            f"   [API] 7. Salvo com sucesso na base de conhecimento (id_conhecimento={registro.get('id_conhecimento')})."
+        )
+
+        return {
+            "message": f"Arquivo '{file.filename}' recebido, processado pelo Gemini, enviado para o Supabase Storage e salvo na base de conhecimento.",
+            "filename": file.filename,
+            "content_type": file.content_type,
+            "url_documento": url_documento,
+            "base_conhecimento": {
+                "id_conhecimento": registro.get("id_conhecimento"),
+                "categoria": categoria,
+                "id_estagio": trabalho_id,
+                "resumo": resultado_gemini["resumo"],
+                "palavra_chave": resultado_gemini["palavras_chave"],
+                "url_documento": url_documento,
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ocorreu um erro ao processar o arquivo: {e}",
+        )
+    finally:
+        await file.close()
+
+
+@router.post("/upload_hora_complementares", status_code=status.HTTP_201_CREATED)
+async def upload_hora_complementares(
+    file: UploadFile = File(...),
+    tipo: str = Form(..., description="Tipo do trabalho acadêmico (ex: tcc, aps, estagio, hora_complementares)"),
+    nome_curso: str = Form(..., description="Nome exato do curso cadastrado"),
+):
+    # Validação básica do tipo de arquivo
+    allowed_content_types = [
+        "application/pdf",  # .pdf
+        "text/plain",  # .txt
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",  # .docx
+        "application/msword",  # .doc
+    ]
+    if file.content_type not in allowed_content_types:
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail=f"Tipo de arquivo '{file.content_type}' não suportado. Use PDF, TXT ou DOCX.",
+        )
+
+    try:
+        destination_path = os.path.join(TEMP_FOLDER_PATH, file.filename)
+
+        print(f"Recebendo arquivo: {file.filename}")
+        print(f"Salvando temporariamente em: {os.path.abspath(destination_path)}")
+
+        with open(destination_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # 1° - Consultar a tabela 'curso' e achar o id_curso com base no 'nome do curso'
+        curso_id = _buscar_id_curso_por_nome(nome_curso.strip())
+        if not curso_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Nenhum curso encontrado com o nome '{nome_curso}'."
+            )
+
+        # 2° - Pegar o 'id_curso' junto com o 'tipo' e consultar a tabela 'trabalho_academico' e pegar o 'id_trabalho'
+        trabalho_id = _buscar_id_trabalho_por_tipo_e_curso(tipo.strip(), curso_id)
+        if not trabalho_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Nenhum trabalho acadêmico do tipo '{tipo}' encontrado para o curso '{nome_curso}' na tabela trabalho_academico."
+            )
+
+        # Processar o conteúdo com o Gemini
+        resultado_gemini = _processar_com_gemini(destination_path, file.content_type)
+
+        palavras_chave = resultado_gemini["palavras_chave"]
+        categoria = palavras_chave[0] if palavras_chave else "Geral"
+
+        # Fazer upload do arquivo para o Supabase Storage
+        url_documento = _upload_para_supabase_storage(destination_path, file.filename)
+
+        # Remover arquivo temporário
+        try:
+            os.remove(destination_path)
+            print(f"   [Limpeza] Arquivo temporário removido: {file.filename}")
+        except Exception as e:
+            print(f"   [AVISO] Não foi possível remover arquivo temporário: {e}")
+
+        # Montar payload para a tabela baseconhecimento
+        payload_base = {
+            "nome_arquivo_origem": file.filename,
+            "conteudo_processado": resultado_gemini["resumo"],
+            "palavra_chave": json.dumps(palavras_chave),
+            "categoria": categoria,
+            "status": "publicado",
+            "id_horas_complementares": str(trabalho_id),
+            "url_documento": url_documento,
+        }
+
+        print("   [API] 6. Salvando conteúdo na tabela 'baseconhecimento'...")
+        db_response = (
+            supabase.table("baseconhecimento").insert(payload_base).execute()
+        )
+
+        if not db_response.data:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Erro ao salvar na base de conhecimento.",
+            )
+
+        registro = db_response.data[0]
+        print(
+            f"   [API] 7. Salvo com sucesso na base de conhecimento (id_conhecimento={registro.get('id_conhecimento')})."
+        )
+
+        return {
+            "message": f"Arquivo '{file.filename}' recebido, processado pelo Gemini, enviado para o Supabase Storage e salvo na base de conhecimento.",
+            "filename": file.filename,
+            "content_type": file.content_type,
+            "url_documento": url_documento,
+            "base_conhecimento": {
+                "id_conhecimento": registro.get("id_conhecimento"),
+                "categoria": categoria,
+                "id_horas_complementares": trabalho_id,
+                "resumo": resultado_gemini["resumo"],
+                "palavra_chave": resultado_gemini["palavras_chave"],
+                "url_documento": url_documento,
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ocorreu um erro ao processar o arquivo: {e}",
+        )
+    finally:
         await file.close()
 

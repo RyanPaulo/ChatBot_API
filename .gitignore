@@ -23,6 +23,8 @@ requirements_watcher.txt/
 requirements_gemini.txt/
 api_gemini - Copia/
 .para_ler/
+.connectors/
+.api_gemini/
 
 # Arquivos com segredos e configurações sensíveis
 **/test_teams_connection.py

@@ -35,8 +35,21 @@ def create_conhecimento(item: BaseConhecimentoCreate):
         if 'visivel_para' in payload:
             payload['visivel_para'] = json.dumps(payload['visivel_para'])
 
+        # Convertendo os id em strings para que garata compartibilidade
         if payload.get('id_disciplina'):
             payload['id_disciplina'] = str(payload['id_disciplina'])
+        
+        if payload.get('id_tcc'):
+            payload['id_tcc'] = str(payload['id_tcc'])
+
+        if payload.get('id_aps'):
+            payload['id_aps'] = str(payload['id_aps'])
+
+        if payload.get('id_estagio'):
+            payload['id_estagio'] = str(payload['id_estagio'])
+
+        if payload.get('id_hora_complementares'):
+            payload['id_hora_complementares'] = str(payload['id_hora_complementares'])
 
         response = supabase.table("baseconhecimento").insert(payload).execute()
 
@@ -190,6 +203,18 @@ def update_conhecimento(item_id: uuid.UUID, item: BaseConhecimentoUpdate):
 
         if payload.get('id_disciplina'):
             payload['id_disciplina'] = str(payload['id_disciplina'])
+
+        if payload.get('id_tcc'):
+            payload['id_tcc'] = str(payload['id_tcc'])
+
+        if payload.get('id_aps'):
+            payload['id_aps'] = str(payload['id_aps'])
+
+        if payload.get('id_estagio'):
+            payload['id_estagio'] = str(payload['id_estagio'])
+            
+        if payload.get('id_hora_complementares'):
+            payload['id_hora_complementares'] = str(payload['id_hora_complementares'])
 
         payload['atualizado_em'] = datetime.now().isoformat()
 

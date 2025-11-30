@@ -42,7 +42,7 @@ def create_aviso(aviso_data: AvisoCreate, current_user: dict = Depends(require_a
                 raise HTTPException(status_code=404, detail=f"O professor com ID '{aviso_data.id_professor}' não foi encontrado.")
             if 'fk_aviso_coordenador' in str(e).lower():
                 raise HTTPException(status_code=404, detail=f"O coordenador com ID '{aviso_data.id_coordenador}' não foi encontrado.")
-        raise HTTPException(status_code=400, detail=(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
 ### ENDPOINT PARA CONSULTA DA TABELA AVISO ###
 @router.get("/get_aviso_id/{aviso_id}", response_model=Aviso)

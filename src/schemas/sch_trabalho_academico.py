@@ -11,10 +11,12 @@ class TipoTrabalhoEnum(str, Enum):
     tc1 = "TC 1"
     tc2 = "TC 2"
     aps = "APS"
+    estagio = "estagio"
+    hora_complementar = "horas_complementares"
 
 
 class TrabalhoAcademicoBase(BaseModel):
-    tipo: TipoTrabalhoEnum = Field(..., description="Tipo do trabalho: TC 1, TC 2 ou APS")
+    tipo: TipoTrabalhoEnum = Field(..., description="Tipo do trabalho: TC 1, TC 2, APS, estagio ou Hora Complementar")
     tema: str = Field(..., description="Tema do trabalho")
     regras: Optional[str] = Field(None, description="Regras e instruções do trabalho")
     data_entrega: Optional[date] = Field(None, description="Data de entrega do trabalho")
@@ -44,7 +46,7 @@ class TrabalhoAcademico(TrabalhoAcademicoBase):
 
 
 class TrabalhoAcademicoUpdate(BaseModel):
-    tipo: Optional[TipoTrabalhoEnum] = Field(None, description="Tipo do trabalho: TC 1, TC 2 ou APS")
+    tipo: Optional[TipoTrabalhoEnum] = Field(None, description="Tipo do trabalho: TC 1, TC 2, APS, estagio ou Hora Complementar")
     tema: Optional[str] = None
     regras: Optional[str] = None
     data_entrega: Optional[date] = None
