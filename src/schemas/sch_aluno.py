@@ -34,3 +34,11 @@ class AlunoUpdate(BaseModel):
     turma: Optional[str] = None
     id_curso: Optional[uuid.UUID] = None
 
+# Class para retornar apenas email e RA do aluno
+class AlunoEmailRA(BaseModel):
+    email_institucional: EmailStr
+    matricula_ra: str
+
+    class Config:
+        from_attributes = True
+

@@ -6,6 +6,8 @@ import os
 import tempfile
 from ..config import settings
 from ..supabase_client import supabase
+from ..dependencies import require_all, require_aluno, require_admin_or_coordenador_or_professor
+
 # from ..dependencies import 
 
 
@@ -337,7 +339,7 @@ INSTRUÇÕES:
 
 
 @router.post("/gerar-resposta")
-async def gerar_resposta_com_ia(request: GenerationRequest):
+async def gerar_resposta_com_ia(request: GenerationRequest, current_user: dict = Depends(require_all)):
     """
     Recebe uma pergunta, consulta a base de conhecimento no Supabase de forma abrangente,
     e se não encontrar resposta suficiente, processa documentos das URLs armazenadas.

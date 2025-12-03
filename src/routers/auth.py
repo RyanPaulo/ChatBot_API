@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import jwt
 
 router = APIRouter(
+    prefix="/auth",
     tags=["Autenticação"]
 )
 
@@ -84,7 +85,8 @@ def _validar_ra_parcial(ra_completo: str, ra_resposta: str, tipo_pergunta: str, 
         # Posição 1-indexed, então subtrai 1 para indexar
         if posicao < 1 or posicao > len(ra_completo):
             return False
-        return ra_completo[posicao - 1] == ra_resposta
+        # Comparar em maiúsculas para evitar problemas de case sensitivity
+        return ra_completo.upper()[posicao - 1] == ra_resposta.upper()
     
     elif tipo_pergunta == "completo":
         return ra_completo == ra_resposta

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from typing import List
 from src.supabase_client import supabase
-from src.schemas.sch_aluno import AlunoCreate, Aluno, AlunoUpdate
+from src.schemas.sch_aluno import AlunoCreate, Aluno, AlunoUpdate, AlunoEmailRA
 from ..dependencies import require_admin_or_coordenador, require_all, require_admin_or_coordenador_or_professor
 import uuid
 
@@ -66,11 +66,12 @@ def create_aluno(aluno_data: AlunoCreate, current_user: dict = Depends(require_a
 
 
 ### ENDPOINT PARA BUSCAR UM ALUNO PELO EMAIL ###
-@router.get("/get_email/{email}", response_model=Aluno)
+@router.get("/get_email/{email}", response_model=AlunoEmailRA)
 def get_aluno_by_email(email: str): #, current_user: dict = Depends(require_all) 
     try:
         # Realiza a consulta na tabela "aluno" filtrando pelo email_institucional
-        response = supabase.table("aluno").select("*").eq("email_institucional", email).single().execute()
+        # Retorna apenas email_institucional e matricula_ra
+        response = supabase.table("aluno").select("email_institucional, matricula_ra").eq("email_institucional", email).single().execute()
 
         # Verifica se a busca retornou algum dado
         if not response.data:
@@ -80,7 +81,7 @@ def get_aluno_by_email(email: str): #, current_user: dict = Depends(require_all)
                 detail=f"Nenhum aluno encontrado com o email '{email}'."
             )
 
-        # Se encontrou, retorna os dados do aluno.
+        # Se encontrou, retorna apenas email_institucional e matricula_ra.
         return response.data
 
     except HTTPException as http_exc:
