@@ -5,6 +5,7 @@ from ..dependencies import require_admin_or_coordenador, require_all, require_ad
 from ..config import settings
 from typing import List
 import requests
+import re
 
 # --- ROUTER PROFESSORES ---
 
@@ -149,7 +150,16 @@ def update_professor(id: str, professor_update_data: ProfessorUpdate):
         if not update_payload:
             raise HTTPException(status_code=400, detail="Nenhum dado fornecido para atualização.")
 
-        response = supabase.table('professor').update(update_payload).eq('id_funcional', id).execute()
+        # Verificar se o id é um UUID (tem hífens e formato UUID) ou id_funcional
+        uuid_pattern = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        is_uuid = bool(re.match(uuid_pattern, id, re.IGNORECASE))
+        
+        if is_uuid:
+            # Se for UUID, atualiza diretamente pelo id
+            response = supabase.table('professor').update(update_payload).eq('id', id).execute()
+        else:
+            # Se não for UUID, atualiza pelo id_funcional
+            response = supabase.table('professor').update(update_payload).eq('id_funcional', id).execute()
 
         if not response.data:
             raise HTTPException(status_code=404, detail="Professor não encontrado para atualização.")
@@ -158,11 +168,20 @@ def update_professor(id: str, professor_update_data: ProfessorUpdate):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-### ENDPOINR PARA DELETAR PROFESSORES ###
-@router.delete("/detele/{id}", status_code=status.HTTP_204_NO_CONTENT)
+### ENDPOINT PARA DELETAR PROFESSORES ###
+@router.delete("/delete/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_professor(id: str, current_user: dict = Depends(require_admin_or_coordenador)):
     try:
-        response = supabase.table("professor").select("id").eq("id_funcional", id).execute()
+        # Verificar se o id é um UUID (tem hífens e formato UUID) ou id_funcional
+        uuid_pattern = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        is_uuid = bool(re.match(uuid_pattern, id, re.IGNORECASE))
+        
+        if is_uuid:
+            # Se for UUID, busca diretamente pelo id
+            response = supabase.table("professor").select("id").eq("id", id).execute()
+        else:
+            # Se não for UUID, busca pelo id_funcional
+            response = supabase.table("professor").select("id").eq("id_funcional", id).execute()
 
         if not response.data:
             raise HTTPException(status_code=404, detail="Professor não encontrado para deletar.")

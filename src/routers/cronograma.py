@@ -2,7 +2,7 @@ from typing import List
 from fastapi import APIRouter, HTTPException, status, Depends
 from ..supabase_client import supabase
 from ..schemas.sch_cronograma import CronogramaCreate, Cronograma, CronogramaUpdate
-#  from ..dependencies import 
+from ..dependencies import require_admin_or_coordenador_or_professor
 import uuid
 
 # --- ROUTER CRONOGRAMA ---
@@ -15,7 +15,7 @@ router = APIRouter(
 
 ### ENDPOINT PARA REGISTRAR CRONOGRAMA ###
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=Cronograma)
-def create_cronograma(cronograma_data: CronogramaCreate):
+def create_cronograma(cronograma_data: CronogramaCreate, current_user: dict = Depends(require_admin_or_coordenador_or_professor)):
     try:
         cronograma_payload = cronograma_data.model_dump()
 
@@ -79,7 +79,7 @@ def get_cronogramas_por_disciplina(disciplina_id: uuid.UUID):
 
 ##### ENDPOINT PARA ATUALIZAR O CRONOGRAMA USANDO O ID ####
 @router.put("/updade/{cronograma_id}", response_model=Cronograma)
-def update_cronograma(cronograma_id: uuid.UUID, cronograma_data: CronogramaUpdate):
+def update_cronograma(cronograma_id: uuid.UUID, cronograma_data: CronogramaUpdate, current_user: dict = Depends(require_admin_or_coordenador_or_professor)):
     try:
         update_payload = cronograma_data.model_dump(exclude_unset=True)
 

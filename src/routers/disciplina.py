@@ -3,7 +3,7 @@ from ..schemas.sch_cronograma import Cronograma
 from fastapi import APIRouter, HTTPException, status, Depends
 from ..supabase_client import supabase
 from ..schemas.sch_disciplina import DisciplinaCreate, Disciplina, DisciplinaUpdate, DisciplinaEmenta
-# from ..dependencies import 
+from ..dependencies import require_admin_or_coordenador_or_professor
 import uuid
 
 # --- ROUTER DISCIPLINA ---
@@ -15,7 +15,7 @@ router = APIRouter(
 
 ### ENDPOINT PARA CASDATRAR DISCIPLINAS #####
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=Disciplina)
-def create_disciplina(disciplina_data: DisciplinaCreate):
+def create_disciplina(disciplina_data: DisciplinaCreate, current_user: dict = Depends(require_admin_or_coordenador_or_professor)):
     try:
         disciplina_payload = disciplina_data.model_dump()
 
@@ -133,14 +133,38 @@ def get_cronograma_por_disciplina(nome_disciplina: str):
 @router.get("/lista_disciplina/", response_model=list[Disciplina])
 def get_all_disciplina():
     try:
-        response = supabase.table("disciplina").select("*").execute()
-        return response.data
+        # Busca disciplinas com join para professores
+        db_response = supabase.table("disciplina").select(
+            """
+            *,
+            professordisciplina!left(
+                professor!inner(nome_professor, sobrenome_professor)
+            )
+            """
+        ).execute()
+        
+        # Processa cada disciplina para formatar os professores
+        disciplinas_formatadas = []
+        for disc in db_response.data:
+            # Processar os professores
+            professores_list = []
+            if disc.get('professordisciplina'):
+                for item in disc['professordisciplina']:
+                    if item and item.get('professor'):
+                        professores_list.append(item['professor'])
+            disc['professores'] = professores_list
+            if 'professordisciplina' in disc:
+                del disc['professordisciplina']
+            
+            disciplinas_formatadas.append(Disciplina.model_validate(disc))
+        
+        return [d.model_dump() for d in disciplinas_formatadas]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 ### ENDPOINT PARA ATUALIZAR AVALIACAO ###
 @router.put("/update/{disciplina_id}", response_model=Disciplina)
-def update_disciplina(disciplina_id: uuid.UUID, disciplina_data: DisciplinaUpdate):
+def update_disciplina(disciplina_id: uuid.UUID, disciplina_data: DisciplinaUpdate, current_user: dict = Depends(require_admin_or_coordenador_or_professor)):
     try:
         update_payload = disciplina_data.model_dump(exclude_unset=True)
 
@@ -165,7 +189,7 @@ def update_disciplina(disciplina_id: uuid.UUID, disciplina_data: DisciplinaUpdat
 
 ### ENDPOINT PARA DELETAR AVALIACAO ###
 @router.delete("/delete/{disciplina_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_disciplina(disciplina_id: uuid.UUID):
+def delete_disciplina(disciplina_id: uuid.UUID, current_user: dict = Depends(require_admin_or_coordenador_or_professor)):
     try:
         db_response = supabase.table('disciplina').delete().eq('id_disciplina', str(disciplina_id)).execute()
 

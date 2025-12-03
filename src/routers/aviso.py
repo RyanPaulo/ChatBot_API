@@ -2,7 +2,7 @@ from typing import List
 from fastapi import APIRouter, HTTPException, status, Depends
 from ..supabase_client import supabase
 from ..schemas.sch_aviso import Aviso, AvisoCreate, AvisoUpdate
-from ..dependencies import require_admin_or_coordenador, require_aluno
+from ..dependencies import require_admin_or_coordenador
 import uuid
 
 # --- ROUTER AVISO ---
