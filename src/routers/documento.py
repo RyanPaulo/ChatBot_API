@@ -28,7 +28,7 @@ BUCKET_NAME = "documentos"
 
 # Configura o Gemini (reutiliza mesma chave do projeto)
 genai.configure(api_key=settings.GOOGLE_API_KEY)
-gemini_model = genai.GenerativeModel("gemini-2.0-flash")
+gemini_model = genai.GenerativeModel("gemini-2.5-flash")
 
 
 def _extrair_disciplina_e_categoria(nome_arquivo: str) -> tuple[str, str]:

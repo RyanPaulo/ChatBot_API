@@ -13,7 +13,7 @@ from ..dependencies import require_all, require_aluno, require_admin_or_coordena
 
 # Carrega a chave da API do Gemini
 genai.configure(api_key=settings.GOOGLE_API_KEY)
-gemini_model = genai.GenerativeModel("gemini-2.0-flash")
+gemini_model = genai.GenerativeModel("gemini-2.5-flash")
 
 router = APIRouter(
     prefix="/ia",
