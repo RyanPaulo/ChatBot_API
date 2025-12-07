@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from typing import List
 from src.supabase_client import supabase
-from src.schemas.sch_aluno import AlunoCreate, Aluno, AlunoUpdate, AlunoEmailRA
+from src.schemas.sch_aluno import AlunoCreate, Aluno, AlunoUpdate, AlunoEmailRA, AlunoQuantidadeTurma
 from ..dependencies import require_admin_or_coordenador, require_all, require_admin_or_coordenador_or_professor
 import uuid
 
@@ -84,6 +84,55 @@ def get_aluno_by_email(email: str): #, current_user: dict = Depends(require_all)
         # Se encontrou, retorna apenas email_institucional e matricula_ra.
         return response.data
 
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Um erro inesperado ocorreu: {str(e)}"
+        )
+
+### ENDPOINT PARA CONSULTAR QUANTIDADE DE ALUNOS NA MESMA TURMA ###
+@router.get("/get_quantidade_turma/{id_aluno}", response_model=AlunoQuantidadeTurma)
+def get_quantidade_alunos_turma(id_aluno: uuid.UUID):
+    try:
+        # Busca o aluno pelo id para obter turma, curso e semestre
+        aluno_response = supabase.table("aluno").select("turma, id_curso, semestre").eq("id", str(id_aluno)).single().execute()
+        
+        if not aluno_response.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Aluno com ID '{id_aluno}' não encontrado."
+            )
+        
+        turma_aluno = aluno_response.data['turma']
+        id_curso_aluno = aluno_response.data['id_curso']
+        semestre_aluno = aluno_response.data['semestre']
+        
+        # Busca o nome do curso
+        curso_response = supabase.table("curso").select("nome_curso").eq("id_curso", str(id_curso_aluno)).single().execute()
+        
+        if not curso_response.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Curso com ID '{id_curso_aluno}' não encontrado."
+            )
+        
+        nome_curso = curso_response.data['nome_curso']
+        
+        # Conta quantos alunos têm a mesma turma e curso
+        count_response = supabase.table("aluno").select("id", count="exact").eq("turma", turma_aluno).eq("id_curso", str(id_curso_aluno)).execute()
+        
+        # Usa o atributo count se disponível, caso contrário conta os dados retornados
+        quantidade = count_response.count if hasattr(count_response, 'count') and count_response.count is not None else len(count_response.data) if count_response.data else 0
+        
+        return {
+            "quantidade_alunos": quantidade,
+            "nome_curso": nome_curso,
+            "turma": turma_aluno,
+            "semestre": semestre_aluno
+        }
+    
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
@@ -176,5 +225,7 @@ def delete_aluno(ra: str, current_user: dict = Depends(require_admin_or_coordena
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
 
 

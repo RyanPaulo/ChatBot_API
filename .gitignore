@@ -1,5 +1,6 @@
 # Ambientes virtuais (os mais importantes de ignorar)
 .venv/
+.venv_api
 .env/
 .Dockerfile/
 env.txt/

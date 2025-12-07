@@ -83,25 +83,25 @@ def get_disciplina_detalhado(disciplina_id: uuid.UUID):
         raise HTTPException(status_code=500, detail=str(e))
 
 ### ENDPOINT PARA RETORNAR O CONTEUDO DA EMENTA ###
-@router.get("/get_ementa/{disciplina_id}", response_model=DisciplinaEmenta)
-def get_ementa_da_disciplina(disciplina_id: uuid.UUID):
+@router.get("/get_ementa/{nome_disciplina}", response_model=DisciplinaEmenta)
+def get_ementa_da_disciplina(nome_disciplina: str):
     try:
-        # seleciona apenas a coluna 'ementa' da tabela 'Disciplina'
+        # seleciona apenas a coluna 'ementa' da tabela 'Disciplina' usando o nome
         db_response = supabase.table("disciplina").select(
             "ementa"
-        ).eq(
-            'id_disciplina', str(disciplina_id)
+        ).ilike(
+            'nome_disciplina', f"%{nome_disciplina}%"
         ).single().execute()
 
 
         if not db_response.data:
-            raise HTTPException(status_code=404, detail="Disciplina não encontrada.")
+            raise HTTPException(status_code=404, detail=f"Disciplina '{nome_disciplina}' não encontrada.")
 
         return db_response.data
 
     except Exception as e:
         if "JSON object requested, multiple (or no) rows returned" in str(e):
-             raise HTTPException(status_code=404, detail="Disciplina não encontrada.")
+             raise HTTPException(status_code=404, detail=f"Disciplina '{nome_disciplina}' não encontrada.")
         raise HTTPException(status_code=500, detail=str(e))
 
 #### ENDPOINT PARA BUSCAR O CRONOGRAMA DE UMA DISCIPLINA PELO NOME ####

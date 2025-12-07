@@ -25,9 +25,8 @@ class TrabalhoAcademicoBase(BaseModel):
     )
     semestre: str = Field(..., max_length=6, description="Semestre no formato ano.semestre (ex: 2025.1)")
 
-    id_orientador: Optional[uuid.UUID] = Field(
-        None, description="ID do professor orientador (tabela professor)"
-    )
+    id_orientador: Optional[uuid.UUID] = Field(None, description="ID do professor orientador (tabela professor)")
+    id_coordenador: Optional[uuid.UUID] = Field(None, description="ID do professor coorientador (tabela professor)")
     id_curso: uuid.UUID = Field(..., description="ID do curso (tabela curso)")
     id_disciplina: Optional[uuid.UUID] = Field(
         None, description="ID da disciplina (tabela disciplina)"
@@ -53,6 +52,7 @@ class TrabalhoAcademicoUpdate(BaseModel):
     maximo_integrantes: Optional[int] = None
     semestre: Optional[str] = Field(None, max_length=6, description="Semestre no formato ano.semestre (ex: 2025.1)")
     id_orientador: Optional[uuid.UUID] = None
+    id_coordenador: Optional[uuid.UUID] = None
     id_curso: Optional[uuid.UUID] = None
     id_disciplina: Optional[uuid.UUID] = None
 

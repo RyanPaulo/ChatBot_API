@@ -42,3 +42,13 @@ class AlunoEmailRA(BaseModel):
     class Config:
         from_attributes = True
 
+# Class para retornar a quantidade de alunos na mesma turma
+class AlunoQuantidadeTurma(BaseModel):
+    quantidade_alunos: int
+    nome_curso: str
+    turma: str
+    semestre: int
+
+    class Config:
+        from_attributes = True
+
