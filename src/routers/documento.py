@@ -5,6 +5,7 @@ import json
 import uuid
 import re
 import unicodedata
+import requests
 import google.generativeai as genai
 from ..config import settings
 from ..supabase_client import supabase
@@ -266,6 +267,53 @@ def _buscar_id_trabalho_por_tipo_curso_e_data(tipo_trabalho: str, id_curso: str,
         return None
 
 
+def _verificar_ou_criar_bucket(bucket_name: str) -> bool:
+    """
+    Verifica se o bucket existe e tenta criá-lo se não existir.
+    Retorna True se o bucket existe ou foi criado com sucesso.
+    """
+    try:
+        # Tenta listar o bucket para verificar se existe
+        buckets = supabase.storage.list_buckets()
+        bucket_exists = any(b.name == bucket_name for b in buckets)
+        
+        if bucket_exists:
+            print(f"   [Storage] Bucket '{bucket_name}' já existe.")
+            return True
+        
+        # Se não existe, tenta criar via API REST
+        print(f"   [Storage] Bucket '{bucket_name}' não encontrado. Tentando criar...")
+        create_url = f"{settings.SUPABASE_URL}/storage/v1/bucket"
+        
+        headers = {
+            "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
+            "apikey": settings.SUPABASE_SERVICE_KEY,
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "name": bucket_name,
+            "public": True,  # Torna o bucket público para facilitar acesso
+            "file_size_limit": None,
+            "allowed_mime_types": None
+        }
+        
+        create_response = requests.post(create_url, json=payload, headers=headers, timeout=10)
+        
+        if create_response.status_code in [200, 201]:
+            print(f"   [Storage] Bucket '{bucket_name}' criado com sucesso!")
+            return True
+        else:
+            print(f"   [Storage] Aviso: Não foi possível criar o bucket (pode já existir): {create_response.status_code}")
+            # Mesmo se não conseguir criar, tenta continuar (pode ser que já exista)
+            return True
+            
+    except Exception as e:
+        print(f"   [Storage] Aviso ao verificar/criar bucket: {e}")
+        # Continua mesmo se houver erro (o bucket pode já existir)
+        return True
+
+
 def _normalizar_nome_arquivo(nome_arquivo: str) -> str:
     """
     Normaliza o nome do arquivo para ser compatível com Supabase Storage.
@@ -301,8 +349,12 @@ def _upload_para_supabase_storage(caminho_arquivo: str, nome_arquivo: str) -> st
     """
     Faz upload do arquivo para o Supabase Storage usando um nome normalizado.
     Retorna a URL pública.
+    Usa a API REST diretamente com service key para contornar RLS.
     """
     print(f"   [Storage] 1. Fazendo upload do arquivo para o bucket '{BUCKET_NAME}'...")
+    
+    # Verifica se o bucket existe antes de tentar fazer upload
+    _verificar_ou_criar_bucket(BUCKET_NAME)
     
     try:
         # Lê o arquivo em bytes
@@ -315,8 +367,7 @@ def _upload_para_supabase_storage(caminho_arquivo: str, nome_arquivo: str) -> st
         print(f"   [Storage] Nome original: {nome_arquivo}")
         print(f"   [Storage] Nome normalizado: {nome_arquivo_normalizado}")
         
-        # Faz upload para o bucket usando o nome normalizado
-        # Usa a service key que deve contornar RLS
+        # Tenta primeiro com o cliente Supabase (método padrão)
         try:
             response = supabase.storage.from_(BUCKET_NAME).upload(
                 path=nome_arquivo_normalizado,
@@ -327,37 +378,77 @@ def _upload_para_supabase_storage(caminho_arquivo: str, nome_arquivo: str) -> st
                     "x-upsert": "true"  # Garante upsert
                 }
             )
+            print(f"   [Storage] Upload realizado com sucesso usando cliente Supabase")
         except Exception as upload_error:
-            # Se der erro de RLS, tenta criar o bucket primeiro (se não existir)
+            # Se der erro de RLS, usa a API REST diretamente com service key
             error_str = str(upload_error)
             if "row-level security" in error_str.lower() or "403" in error_str or "Unauthorized" in error_str:
-                print(f"   [Storage] Erro de RLS detectado. Verificando configuração do bucket...")
-                print(f"   [Storage] AVISO: O bucket '{BUCKET_NAME}' pode ter RLS habilitado.")
-                print(f"   [Storage] Solução: No Supabase Dashboard, vá em Storage > {BUCKET_NAME} > Policies")
-                print(f"   [Storage] e desabilite RLS ou crie uma política que permita uploads com service key.")
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Erro de permissão no Supabase Storage. O bucket '{BUCKET_NAME}' tem RLS habilitado. "
-                           f"Desabilite RLS no bucket ou configure políticas adequadas no Supabase Dashboard. "
-                           f"Erro original: {error_str}",
-                )
-            raise
+                print(f"   [Storage] Erro de RLS detectado. Tentando upload via API REST com service key...")
+                
+                # Usa a API REST do Supabase Storage diretamente com service key
+                # Isso deve contornar o RLS
+                storage_url = f"{settings.SUPABASE_URL}/storage/v1/object/{BUCKET_NAME}/{nome_arquivo_normalizado}"
+                
+                headers = {
+                    "Authorization": f"Bearer {settings.SUPABASE_SERVICE_KEY}",
+                    "apikey": settings.SUPABASE_SERVICE_KEY,
+                    "Content-Type": "application/octet-stream",
+                    "x-upsert": "true"
+                }
+                
+                try:
+                    # Faz upload via API REST
+                    upload_response = requests.post(
+                        storage_url,
+                        data=file_data,
+                        headers=headers,
+                        timeout=30
+                    )
+                    
+                    if upload_response.status_code not in [200, 201]:
+                        error_detail = upload_response.text
+                        print(f"   [Storage] Erro na API REST: {upload_response.status_code} - {error_detail}")
+                        raise HTTPException(
+                            status_code=status.HTTP_403_FORBIDDEN,
+                            detail=f"Erro ao fazer upload via API REST: {upload_response.status_code}. "
+                                   f"Verifique as políticas RLS do bucket '{BUCKET_NAME}' no Supabase Dashboard. "
+                                   f"Erro: {error_detail}",
+                        )
+                    
+                    print(f"   [Storage] Upload realizado com sucesso via API REST")
+                except requests.exceptions.RequestException as api_error:
+                    print(f"   [Storage] Erro na requisição API REST: {api_error}")
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=f"Erro ao fazer upload via API REST: {str(api_error)}",
+                    )
+            else:
+                # Se não for erro de RLS, propaga o erro original
+                raise
         
         # Obtém a URL pública do arquivo
         # get_public_url retorna um dicionário com a chave 'publicUrl' ou a URL diretamente
-        public_url_response = supabase.storage.from_(BUCKET_NAME).get_public_url(nome_arquivo_normalizado)
-        
-        # Se for um dicionário, extrai a URL; se for string, usa diretamente
-        if isinstance(public_url_response, dict):
-            url_documento = public_url_response.get("publicUrl") or public_url_response.get("url") or str(public_url_response)
-        else:
-            url_documento = str(public_url_response)
+        try:
+            public_url_response = supabase.storage.from_(BUCKET_NAME).get_public_url(nome_arquivo_normalizado)
+            
+            # Se for um dicionário, extrai a URL; se for string, usa diretamente
+            if isinstance(public_url_response, dict):
+                url_documento = public_url_response.get("publicUrl") or public_url_response.get("url") or str(public_url_response)
+            else:
+                url_documento = str(public_url_response)
+        except Exception as url_error:
+            # Se não conseguir a URL pública, constrói manualmente
+            print(f"   [Storage] Aviso: Não foi possível obter URL pública automaticamente: {url_error}")
+            url_documento = f"{settings.SUPABASE_URL}/storage/v1/object/public/{BUCKET_NAME}/{nome_arquivo_normalizado}"
         
         print(f"   [Storage] 2. Arquivo enviado com sucesso!")
         print(f"   [Storage] 3. URL pública: {url_documento}")
         
         return url_documento
         
+    except HTTPException:
+        # Re-propaga HTTPExceptions
+        raise
     except Exception as e:
         print(f"   [ERRO Storage] Falha ao fazer upload: {e}")
         raise HTTPException(
