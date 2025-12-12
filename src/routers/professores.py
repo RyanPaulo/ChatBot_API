@@ -103,8 +103,97 @@ def create_professor(professor_data: ProfessorCreate, current_user: dict = Depen
 @router.get("/lista_professores/", response_model=List[Professor])
 def get_all_professores():
     try:
+        # Busca todos os professores
         response = supabase.table("professor").select("*").execute()
-        return response.data
+        
+        print(f"[DEBUG] Total de professores retornados: {len(response.data) if response.data else 0}")
+        
+        # Busca todas as associações professordisciplina com nomes das disciplinas
+        pd_response = supabase.table("professordisciplina").select(
+            """
+            id_professor,
+            disciplina!inner(id_disciplina, nome_disciplina)
+            """
+        ).execute()
+        
+        # Cria um dicionário para mapear professor_id -> lista de nomes de disciplinas
+        professor_disciplinas_map = {}
+        if pd_response.data:
+            for pd in pd_response.data:
+                prof_id = str(pd.get('id_professor', ''))
+                disciplina_info = pd.get('disciplina')
+                if disciplina_info and isinstance(disciplina_info, dict):
+                    nome_disciplina = disciplina_info.get('nome_disciplina', '')
+                    if nome_disciplina:
+                        if prof_id not in professor_disciplinas_map:
+                            professor_disciplinas_map[prof_id] = []
+                        if nome_disciplina not in professor_disciplinas_map[prof_id]:
+                            professor_disciplinas_map[prof_id].append(nome_disciplina)
+        
+        print(f"[DEBUG] Mapa de disciplinas: {professor_disciplinas_map}")
+        
+        # Processa cada professor e adiciona suas disciplinas
+        professores_formatados = []
+        for prof in response.data:
+            prof_id = str(prof.get('id', ''))
+            disciplina_nomes = professor_disciplinas_map.get(prof_id, [])
+            prof['disciplina_nomes'] = disciplina_nomes
+            
+            print(f"[DEBUG] Professor {prof.get('nome_professor')} (ID: {prof_id}): {len(disciplina_nomes)} disciplinas = {disciplina_nomes}")
+            
+            professores_formatados.append(Professor.model_validate(prof))
+        
+        return [p.model_dump() for p in professores_formatados]
+    except Exception as e:
+        print(f"[ERROR] Erro ao buscar professores: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+### ENDPOINT PARA BUSCAR PROFESSOR POR ID ###
+@router.get("/get_professor/{professor_id}", response_model=Professor)
+def get_professor_by_id(professor_id: str):
+    try:
+        # Verificar se o id é um UUID ou id_funcional
+        uuid_pattern = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        is_uuid = bool(re.match(uuid_pattern, professor_id, re.IGNORECASE))
+        
+        # Busca professor
+        if is_uuid:
+            response = supabase.table("professor").select("*").eq('id', professor_id).single().execute()
+        else:
+            response = supabase.table("professor").select("*").eq('id_funcional', professor_id).single().execute()
+        
+        if not response.data:
+            raise HTTPException(status_code=404, detail="Professor não encontrado.")
+        
+        prof = response.data
+        prof_id = str(prof.get('id', ''))
+        
+        # Busca disciplinas associadas diretamente da tabela professordisciplina
+        pd_response = supabase.table("professordisciplina").select(
+            """
+            disciplina!inner(id_disciplina, nome_disciplina)
+            """
+        ).eq('id_professor', prof_id).execute()
+        
+        # Processar as disciplinas
+        disciplina_nomes = []
+        if pd_response.data:
+            for pd in pd_response.data:
+                disciplina_info = pd.get('disciplina')
+                if disciplina_info and isinstance(disciplina_info, dict):
+                    nome = disciplina_info.get('nome_disciplina', '')
+                    if nome and nome not in disciplina_nomes:
+                        disciplina_nomes.append(nome)
+        
+        prof['disciplina_nomes'] = disciplina_nomes
+        
+        print(f"[DEBUG] Professor {prof.get('nome_professor')} (ID: {prof_id}): {len(disciplina_nomes)} disciplinas = {disciplina_nomes}")
+        
+        return Professor.model_validate(prof)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -123,8 +212,40 @@ def get_professor_by_nome(nome: str):
                 detail=f"Nenhum professor encontrado com o nome '{nome}'."
             )
 
-        # Se encontrou, retorna os dados dos professores.
-        return response.data
+        # Busca todas as associações professordisciplina para os professores encontrados
+        professor_ids = [str(p.get('id', '')) for p in response.data if p.get('id')]
+        professor_disciplinas_map = {}
+        
+        if professor_ids:
+            pd_response = supabase.table("professordisciplina").select(
+                """
+                id_professor,
+                disciplina!inner(id_disciplina, nome_disciplina)
+                """
+            ).in_('id_professor', professor_ids).execute()
+            
+            if pd_response.data:
+                for pd in pd_response.data:
+                    prof_id = str(pd.get('id_professor', ''))
+                    disciplina_info = pd.get('disciplina')
+                    if disciplina_info and isinstance(disciplina_info, dict):
+                        nome_disciplina = disciplina_info.get('nome_disciplina', '')
+                        if nome_disciplina:
+                            if prof_id not in professor_disciplinas_map:
+                                professor_disciplinas_map[prof_id] = []
+                            if nome_disciplina not in professor_disciplinas_map[prof_id]:
+                                professor_disciplinas_map[prof_id].append(nome_disciplina)
+
+        # Processa cada professor e adiciona suas disciplinas
+        professores_formatados = []
+        for prof in response.data:
+            prof_id = str(prof.get('id', ''))
+            disciplina_nomes = professor_disciplinas_map.get(prof_id, [])
+            prof['disciplina_nomes'] = disciplina_nomes
+            
+            professores_formatados.append(Professor.model_validate(prof))
+
+        return [p.model_dump() for p in professores_formatados]
 
     except HTTPException as http_exc:
         raise http_exc
@@ -138,8 +259,10 @@ def get_professor_by_nome(nome: str):
 @router.put("/update/{id}", response_model=Professor)
 def update_professor(id: str, professor_update_data: ProfessorUpdate):
     try:
-
         update_payload = professor_update_data.model_dump(exclude_unset=True)
+
+        # Extrair disciplina_nomes se presente (não vai para a tabela professor diretamente)
+        disciplina_nomes = update_payload.pop('disciplina_nomes', None)
 
         if 'atendimento_hora_inicio' in update_payload:
             update_payload['atendimento_hora_inicio'] = update_payload['atendimento_hora_inicio'].isoformat()
@@ -147,24 +270,74 @@ def update_professor(id: str, professor_update_data: ProfessorUpdate):
         if 'atendimento_hora_fim' in update_payload:
             update_payload['atendimento_hora_fim'] = update_payload['atendimento_hora_fim'].isoformat()
 
-        if not update_payload:
-            raise HTTPException(status_code=400, detail="Nenhum dado fornecido para atualização.")
-
         # Verificar se o id é um UUID (tem hífens e formato UUID) ou id_funcional
         uuid_pattern = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
         is_uuid = bool(re.match(uuid_pattern, id, re.IGNORECASE))
         
+        # Buscar o ID real do professor (UUID)
         if is_uuid:
-            # Se for UUID, atualiza diretamente pelo id
-            response = supabase.table('professor').update(update_payload).eq('id', id).execute()
+            professor_check = supabase.table("professor").select("id").eq('id', id).execute()
         else:
-            # Se não for UUID, atualiza pelo id_funcional
-            response = supabase.table('professor').update(update_payload).eq('id_funcional', id).execute()
-
-        if not response.data:
+            professor_check = supabase.table("professor").select("id").eq('id_funcional', id).execute()
+        
+        if not professor_check.data:
             raise HTTPException(status_code=404, detail="Professor não encontrado para atualização.")
-
-        return response.data[0]
+        
+        professor_uuid = professor_check.data[0]['id']
+        
+        # Atualizar dados do professor (exceto disciplinas)
+        if update_payload:
+            response = supabase.table('professor').update(update_payload).eq('id', professor_uuid).execute()
+            if not response.data:
+                raise HTTPException(status_code=404, detail="Erro ao atualizar dados do professor.")
+        
+        # Atualizar disciplinas se fornecido
+        if disciplina_nomes is not None:
+            # Deletar associações antigas
+            supabase.table('professordisciplina').delete().eq('id_professor', str(professor_uuid)).execute()
+            
+            # Criar novas associações
+            if disciplina_nomes and len(disciplina_nomes) > 0:
+                disciplinas_ids_response = supabase.table("disciplina").select("id_disciplina", "nome_disciplina").in_("nome_disciplina", disciplina_nomes).execute()
+                disciplinas_encontradas = disciplinas_ids_response.data
+                
+                if len(disciplinas_encontradas) > 0:
+                    associations_to_create = [
+                        {"id_professor": str(professor_uuid), "id_disciplina": disciplina['id_disciplina']}
+                        for disciplina in disciplinas_encontradas
+                    ]
+                    supabase.table("professordisciplina").insert(associations_to_create).execute()
+        
+        # Buscar professor atualizado
+        prof_response = supabase.table("professor").select("*").eq('id', professor_uuid).single().execute()
+        
+        prof = prof_response.data
+        prof_id = str(prof.get('id', ''))
+        
+        # Busca disciplinas associadas diretamente da tabela professordisciplina
+        pd_response = supabase.table("professordisciplina").select(
+            """
+            disciplina!inner(id_disciplina, nome_disciplina)
+            """
+        ).eq('id_professor', prof_id).execute()
+        
+        # Processar as disciplinas
+        disciplina_nomes_final = []
+        if pd_response.data:
+            for pd in pd_response.data:
+                disciplina_info = pd.get('disciplina')
+                if disciplina_info and isinstance(disciplina_info, dict):
+                    nome = disciplina_info.get('nome_disciplina', '')
+                    if nome and nome not in disciplina_nomes_final:
+                        disciplina_nomes_final.append(nome)
+        
+        prof['disciplina_nomes'] = disciplina_nomes_final
+        
+        print(f"[DEBUG] Professor atualizado {prof.get('nome_professor')} (ID: {prof_id}): {len(disciplina_nomes_final)} disciplinas = {disciplina_nomes_final}")
+        
+        return Professor.model_validate(prof)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

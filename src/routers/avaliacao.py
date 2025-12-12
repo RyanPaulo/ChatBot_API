@@ -56,11 +56,20 @@ def get_avaliacao(avaliacao_id: uuid.UUID): # , current_user: dict = Depends(req
 @router.get("/disciplina/{disciplina_id}", response_model=List[Avaliacao])
 def get_avaliacoes_por_disciplina(disciplina_id: uuid.UUID): # , current_user: dict = Depends(require_all)
     try:
-        response = supabase.table("avaliacao").select("*").eq("id_disciplina", str(disciplina_id)).execute()
+        disciplina_id_str = str(disciplina_id)
+        print(f"[DEBUG] Buscando avaliações para disciplina_id: {disciplina_id_str}")
+        response = supabase.table("avaliacao").select("*").eq("id_disciplina", disciplina_id_str).execute()
+        
+        print(f"[DEBUG] Total de avaliações encontradas: {len(response.data) if response.data else 0}")
+        if response.data and len(response.data) > 0:
+            print(f"[DEBUG] Primeira avaliação: {response.data[0]}")
         
         # Retorna a lista de dados (pode ser uma lista vazia, o que é um resultado válido)
         return response.data
     except Exception as e:
+        print(f"[ERROR] Erro ao buscar avaliações por disciplina: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 ### ENDPOINT PARA ATUALIZAR UMA AVALIAÇÃO POR TIPO E DISCIPLINA ###

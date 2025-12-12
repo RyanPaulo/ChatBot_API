@@ -1,10 +1,13 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from ..supabase_client import supabase
-from typing import List
+from typing import List, Dict
 from ..schemas.sch_msg_aluno import MensagemAluno, MensagemAlunoCreate, MensagemAlunoUpdate
 # from ..dependencies import 
 import uuid
 import json
+import re
+from collections import Counter
+from statistics import mean, stdev
 
 
 
@@ -99,3 +102,183 @@ def delete_mensagem(item_id: uuid.UUID):
         return
     except Exception as e:
         raise  HTTPException(status_code=500, detail=str(e))
+
+def _normalizar_pergunta(pergunta: str) -> str:
+    """Normaliza pergunta para agrupamento (remove acentos, lowercase, remove pontuação)"""
+    if not pergunta:
+        return ""
+    # Remove acentos básicos
+    pergunta = pergunta.lower().strip()
+    # Remove pontuação e espaços extras
+    pergunta = re.sub(r'[^\w\s]', '', pergunta)
+    pergunta = re.sub(r'\s+', ' ', pergunta)
+    return pergunta
+
+def _sao_similares(pergunta1: str, pergunta2: str, threshold: float = 0.7) -> bool:
+    """Verifica se duas perguntas são similares usando similaridade de palavras"""
+    norm1 = _normalizar_pergunta(pergunta1)
+    norm2 = _normalizar_pergunta(pergunta2)
+    
+    if not norm1 or not norm2:
+        return False
+    
+    palavras1 = set(norm1.split())
+    palavras2 = set(norm2.split())
+    
+    if not palavras1 or not palavras2:
+        return False
+    
+    # Calcula similaridade de Jaccard
+    intersecao = len(palavras1 & palavras2)
+    uniao = len(palavras1 | palavras2)
+    
+    if uniao == 0:
+        return False
+    
+    similaridade = intersecao / uniao
+    return similaridade >= threshold
+
+### ENDPOINT PARA DASHBOARD DE DÚVIDAS FREQUENTES ###
+@router.get("/dashboard/", response_model=Dict)
+def get_dashboard_duvidas_frequentes():
+    """
+    Retorna dados processados para dashboard de dúvidas frequentes.
+    Agrupa perguntas similares e aplica filtro de frequência baseado em desvio padrão.
+    """
+    try:
+        # Busca todas as mensagens
+        response = supabase.table("mensagemaluno").select("*").order("data_hora", desc=True).execute()
+        
+        todas_mensagens = [convert_json_fields(item) for item in response.data]
+        
+        print(f"[DEBUG] Total de mensagens: {len(todas_mensagens)}")
+        
+        # Agrupar perguntas similares por tópico
+        grupos_perguntas = {}  # {topico: {pergunta_normalizada: {pergunta_original, count, ids}}}
+        
+        for mensagem in todas_mensagens:
+            if not isinstance(mensagem, dict):
+                continue
+                
+            pergunta = mensagem.get('primeira_pergunta', '').strip()
+            if not pergunta:
+                continue
+            
+            topico = mensagem.get('topico', [])
+            if isinstance(topico, list) and len(topico) > 0:
+                topico_str = topico[0] if isinstance(topico[0], str) else str(topico[0])
+            elif isinstance(topico, str):
+                topico_str = topico
+            else:
+                topico_str = 'Geral'
+            
+            if topico_str not in grupos_perguntas:
+                grupos_perguntas[topico_str] = {}
+            
+            # Tenta encontrar grupo similar existente
+            pergunta_normalizada = _normalizar_pergunta(pergunta)
+            grupo_encontrado = None
+            
+            for pergunta_norm_existente, dados_grupo in grupos_perguntas[topico_str].items():
+                if _sao_similares(pergunta, dados_grupo['pergunta_original'], threshold=0.6):
+                    grupo_encontrado = pergunta_norm_existente
+                    break
+            
+            if grupo_encontrado:
+                # Adiciona ao grupo existente
+                grupos_perguntas[topico_str][grupo_encontrado]['count'] += 1
+                grupos_perguntas[topico_str][grupo_encontrado]['ids'].append(mensagem.get('id_mensagem'))
+            else:
+                # Cria novo grupo
+                grupos_perguntas[topico_str][pergunta_normalizada] = {
+                    'pergunta_original': pergunta,
+                    'count': 1,
+                    'ids': [mensagem.get('id_mensagem')],
+                    'topico': topico_str
+                }
+        
+        # Calcular estatísticas de frequência
+        todas_contagens = []
+        for topico, grupos in grupos_perguntas.items():
+            for grupo_data in grupos.values():
+                todas_contagens.append(grupo_data['count'])
+        
+        if not todas_contagens:
+            return {
+                "total_geral": 0,
+                "topicos": [],
+                "duvidas_frequentes": [],
+                "estatisticas": {
+                    "media": 0,
+                    "desvio_padrao": 0,
+                    "limiar_frequencia": 0
+                }
+            }
+        
+        media_contagens = mean(todas_contagens)
+        desvio_padrao_contagens = stdev(todas_contagens) if len(todas_contagens) > 1 else 0
+        
+        # Limiar de frequência: média + 0.5 * desvio padrão (ou mínimo de 2 ocorrências)
+        limiar_frequencia = max(2, int(media_contagens + 0.5 * desvio_padrao_contagens))
+        
+        print(f"[DEBUG] Estatísticas - Média: {media_contagens:.2f}, DP: {desvio_padrao_contagens:.2f}, Limiar: {limiar_frequencia}")
+        
+        # Filtrar apenas dúvidas que passam do limiar
+        duvidas_frequentes = []
+        topicos_stats = {}  # {topico: {total: int, frequentes: int}}
+        
+        for topico, grupos in grupos_perguntas.items():
+            topicos_stats[topico] = {
+                'total': len(grupos),
+                'frequentes': 0,
+                'count_total': sum(g['count'] for g in grupos.values())
+            }
+            
+            for grupo_data in grupos.values():
+                if grupo_data['count'] >= limiar_frequencia:
+                    topicos_stats[topico]['frequentes'] += 1
+                    duvidas_frequentes.append({
+                        'pergunta': grupo_data['pergunta_original'],
+                        'count': grupo_data['count'],
+                        'topico': topico,
+                        'ids': grupo_data['ids'][:5]  # Limita IDs para não sobrecarregar
+                    })
+        
+        # Ordenar dúvidas por frequência
+        duvidas_frequentes.sort(key=lambda x: x['count'], reverse=True)
+        
+        # Preparar dados para gráficos
+        topicos_ordenados = sorted(
+            topicos_stats.items(),
+            key=lambda x: x[1]['count_total'],
+            reverse=True
+        )
+        
+        return {
+            "total_geral": len(todas_mensagens),
+            "total_grupos": sum(len(grupos) for grupos in grupos_perguntas.values()),
+            "total_frequentes": len(duvidas_frequentes),
+            "topicos": [
+                {
+                    "nome": topico,
+                    "total_grupos": stats['total'],
+                    "grupos_frequentes": stats['frequentes'],
+                    "count_total": stats['count_total']
+                }
+                for topico, stats in topicos_ordenados
+            ],
+            "duvidas_frequentes": duvidas_frequentes,
+            "estatisticas": {
+                "media": round(media_contagens, 2),
+                "desvio_padrao": round(desvio_padrao_contagens, 2),
+                "limiar_frequencia": limiar_frequencia,
+                "max_count": max(todas_contagens) if todas_contagens else 0,
+                "min_count": min(todas_contagens) if todas_contagens else 0
+            }
+        }
+        
+    except Exception as e:
+        print(f"[ERROR] Erro ao gerar dashboard: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar dashboard: {str(e)}")
